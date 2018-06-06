@@ -12,6 +12,12 @@ build-type:          Simple
 extra-source-files:  ChangeLog.md
 cabal-version:       >=1.10
 
+flag dump
+  -- dump files will be available after cabal build in dist/build/src/HBF/
+  description: Dump stg and core files
+  manual: True
+  default: False
+
 library
   exposed-modules: HBF.Types
                  , HBF.Parser
@@ -30,6 +36,11 @@ library
   hs-source-dirs:      src
   default-language:    Haskell2010
 
+  ghc-options: -O2 -Wall
+
+  if flag(dump)
+    ghc-options: -ddump-simpl -ddump-stg -ddump-to-file
+
 executable hbfc
   main-is:             Hbfc.hs
   -- other-modules:
@@ -40,6 +51,7 @@ executable hbfc
 
   hs-source-dirs:      .
   default-language:    Haskell2010
+  ghc-options: -O2 -Wall
 
 executable hbf
   main-is:             Hbf.hs
@@ -49,3 +61,4 @@ executable hbf
                      , hbf
   hs-source-dirs:      .
   default-language:    Haskell2010
+  ghc-options: -O2 -Wall
