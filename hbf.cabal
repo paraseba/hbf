@@ -1,0 +1,45 @@
+name:                hbf
+version:             0.1.0.0
+-- synopsis:
+-- description:
+license:             GPL-3
+license-file:        LICENSE
+author:              Sebastian Galkin
+maintainer:          paraseba@gmail.com
+-- copyright:
+category:            Language
+build-type:          Simple
+extra-source-files:  ChangeLog.md
+cabal-version:       >=1.10
+
+library
+  exposed-modules: HBF.Types
+                 , HBF.Parser
+                 , HBF.Eval
+                 , HBF.Compiler
+
+  -- other-modules:
+  -- other-extensions:
+  build-depends:       base >=4.10 && <4.11
+                     , vector
+                     , parsec
+                     , bytestring
+
+  hs-source-dirs:      src
+  default-language:    Haskell2010
+
+executable hbfc
+  main-is:             Compiler.hs
+  -- other-modules:
+  -- other-extensions:
+  build-depends:       base >=4.10 && <4.11
+  hs-source-dirs:      src
+  default-language:    Haskell2010
+
+executable hbf
+  main-is:             Vm.hs
+  -- other-modules:
+  -- other-extensions:
+  build-depends:       base >=4.10 && <4.11
+  hs-source-dirs:      src
+  default-language:    Haskell2010
