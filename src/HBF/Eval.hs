@@ -6,6 +6,7 @@ import qualified Data.Vector as V
 import qualified Data.Vector.Generic.Mutable as MV
 import Data.Vector (Vector)
 import Control.Monad (foldM)
+import System.IO (hFlush, stdout)
 import HBF.Types
 
 tapeRead :: Tape -> Int8
@@ -36,7 +37,7 @@ evalOp t Inc = return $ tapeModify (+1) t
 evalOp t Dec = return $ tapeModify (+(-1)) t
 evalOp t MLeft = return $ moveTapeRight (-1) t
 evalOp t MRight = return $ moveTapeRight 1 t
-evalOp t In = (\x -> tapeModify (\_ -> x) t) . fromIntegral . fromEnum <$> getChar
+evalOp t In = (\x -> tapeModify (\_ -> x) t) . fromIntegral . fromEnum <$> (hFlush stdout >> getChar)
 evalOp t Out = (putChar . toEnum . fromIntegral) (tapeRead t)  >> return t
 evalOp t (Loop ops) =
   if (tapeRead t /= 0)
