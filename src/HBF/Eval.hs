@@ -1,16 +1,17 @@
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE FlexibleContexts    #-}
+{-# LANGUAGE RecordWildCards     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module HBF.Eval
 where
 
-import Data.Int
+import           Control.Monad               (foldM, replicateM)
+import           Control.Monad.Primitive     (PrimMonad, PrimState)
+import           Data.Int
 import qualified Data.Vector.Generic.Mutable as MV
-import qualified Data.Vector.Unboxed as V
-import Control.Monad (foldM, replicateM)
-import Control.Monad.Primitive (PrimMonad, PrimState)
-import HBF.Types
+import qualified Data.Vector.Unboxed         as V
+
+import           HBF.Types
 
 eval :: (MachineIO m, PrimMonad m) => Program -> m Tape
 eval = evalWithTape emptyTape

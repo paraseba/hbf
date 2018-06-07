@@ -1,9 +1,10 @@
 module Main
 where
 
-import HBF.Compiler (parse, compile, ParseError)
-import qualified System.Exit as Exit
-import Data.Monoid ((<>))
+import           Data.Monoid  ((<>))
+import qualified System.Exit  as Exit
+
+import           HBF.Compiler (ParseError, compile, parse)
 
 main :: IO ()
 main = do

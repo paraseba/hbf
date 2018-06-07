@@ -2,20 +2,18 @@
 
 module ParserTest where
 
-import Test.HUnit
-import qualified  Test.HUnit as HU
-import Hedgehog
-import qualified Hedgehog as H
-import qualified Hedgehog.Gen as Gen
+import           Data.Either    (isLeft, isRight)
+import           Data.Semigroup ((<>))
+import           Data.Text.Lazy (Text, pack)
+import           Hedgehog
+import qualified Hedgehog       as H
+import qualified Hedgehog.Gen   as Gen
 import qualified Hedgehog.Range as Range
+import           Test.HUnit
+import qualified Test.HUnit     as HU
 
-
-import HBF.Types
-import HBF.Parser
-
-import Data.Text.Lazy (Text, pack)
-import Data.Either (isRight, isLeft)
-import Data.Semigroup ((<>))
+import           HBF.Parser
+import           HBF.Types
 
 basicOpCharGen :: Gen Char
 basicOpCharGen = Gen.element bfSimpleTokens

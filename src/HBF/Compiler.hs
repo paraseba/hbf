@@ -7,18 +7,19 @@ module HBF.Compiler
   )
 where
 
-import HBF.Types
-import qualified HBF.Parser as BFP
+import           Control.Monad        (when)
+import qualified Data.Binary          as B
+import           Data.ByteString.Lazy (ByteString)
+import           Data.List            (group)
+import           Data.Maybe           (fromMaybe)
+import           Data.Semigroup       ((<>))
+import qualified Data.Text.Lazy.IO    as TIO
+import           Options.Applicative
 
-import Data.ByteString.Lazy (ByteString)
-import qualified Data.Text.Lazy.IO as TIO
-import qualified Data.Binary as B
-import Options.Applicative
-import Data.Semigroup ((<>))
-import Data.Maybe (fromMaybe)
-import System.FilePath ((-<.>))
-import Data.List (group)
-import Control.Monad (when)
+import qualified HBF.Parser           as BFP
+import           HBF.Types
+
+import           System.FilePath      ((-<.>))
 
 compilePToFile :: Program -> FilePath -> IO ()
 compilePToFile = flip B.encodeFile
@@ -43,13 +44,13 @@ optimize opts@CompilerOptions{..} p =
 
   where
     crush l@(Loop _:_) = map (\(Loop ops) -> Loop (optimize opts ops)) l
-    crush l@(Inc:_) = [IncN (length l)]
-    crush l@(Dec:_) = [DecN (length l)]
-    crush l@(MLeft:_) = [MLeftN (length l)]
+    crush l@(Inc:_)    = [IncN (length l)]
+    crush l@(Dec:_)    = [DecN (length l)]
+    crush l@(MLeft:_)  = [MLeftN (length l)]
     crush l@(MRight:_) = [MRightN (length l)]
-    crush l@(In:_) = [InN (length l)]
-    crush l@(Out:_) = [OutN (length l)]
-    crush other = other
+    crush l@(In:_)     = [InN (length l)]
+    crush l@(Out:_)    = [OutN (length l)]
+    crush other        = other
 
 load :: ByteString -> Program
 load = B.decode
@@ -58,10 +59,10 @@ loadFile :: FilePath -> IO Program
 loadFile = B.decodeFile
 
 data CompilerOptions = CompilerOptions
-  { cOptsOut :: Maybe FilePath
+  { cOptsOut                :: Maybe FilePath
   , cOptsFusionOptimization :: Bool
-  , cOptsVerbose :: Bool
-  , cOptsSource :: FilePath
+  , cOptsVerbose            :: Bool
+  , cOptsSource             :: FilePath
   } deriving (Show)
 
 optionsP :: Parser CompilerOptions

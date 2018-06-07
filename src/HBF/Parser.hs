@@ -8,18 +8,15 @@ module HBF.Parser
 
 where
 
-import HBF.Types
 
-import Text.Parsec (many1, many, between, ParseError, runP, eof)
-import Control.Applicative ((<|>))
+import           Control.Applicative   ((<|>))
+import           Data.Text.Lazy        (Text)
+import           Text.Parsec           (ParseError, between, eof, many, many1,
+                                        runP)
+import           Text.Parsec.Char      (char, noneOf, oneOf)
+import           Text.Parsec.Text.Lazy (Parser)
 
-import Text.Parsec.Text.Lazy
-  ( Parser )
-
-import Text.Parsec.Char
-  ( char, noneOf, oneOf )
-
-import Data.Text.Lazy (Text)
+import           HBF.Types
 
 program :: Parser Program
 program =
