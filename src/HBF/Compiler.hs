@@ -1,13 +1,15 @@
-module HBF.Compiler where
+module HBF.Compiler
+  (
+    HBF.Parser.ParseError
+  , module HBF.Compiler
+  )
+where
 
 import HBF.Types
-import HBF.Parser (parseProgram)
+import HBF.Parser (parseProgram, ParseError)
 import Data.ByteString.Lazy (ByteString)
 import qualified Data.ByteString.Lazy as BS
 import qualified Data.Binary as B
-
-import Text.Parsec.Error
-  ( ParseError )
 
 compileP :: Program -> ByteString
 compileP = B.encode

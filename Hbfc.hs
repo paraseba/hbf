@@ -4,9 +4,8 @@ module Main
 where
 
 import System.Environment (getArgs)
-import HBF.Compiler (compile)
+import HBF.Compiler (compile, ParseError)
 import qualified System.Exit as Exit
-import Text.Parsec.Error ( ParseError )
 import Data.Monoid ((<>))
 
 data CompilerArgs = CompilerArgs

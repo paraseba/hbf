@@ -48,7 +48,7 @@ evalOp v pointer (Loop ops) = do
     else foldM (evalOp v) pointer ops >>= flip (evalOp v) (Loop ops)
 
 tapeSize :: Int
-tapeSize = 100 -- fixme
+tapeSize = 30000
 
 emptyTape :: Tape
 emptyTape = Tape

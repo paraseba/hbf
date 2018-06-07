@@ -1,46 +1,42 @@
 module HBF.Parser
-  where
+  (
+    parseProgram
+  , Text.Parsec.ParseError
+  )
+
+where
 
 import HBF.Types
 
-import Text.Parsec.Prim
-  ( (<|>), runP, skipMany )
-
-import Text.Parsec.Combinator
-  ( between, sepEndBy, eof )
-
-import Text.Parsec.Error
-  ( ParseError )
+import Text.Parsec (many1, many, between, ParseError, runP)
+import Control.Applicative ((<|>))
 
 import Text.Parsec.ByteString.Lazy
   ( Parser )
 
 import Text.Parsec.Char
-  ( space, spaces, char )
+  ( char, noneOf, oneOf )
 
 import qualified Data.ByteString.Lazy as BS
 
 program :: Parser Program
-program = do
-  skipMany space
-  sepEndBy operation spaces
-
-fullProgram :: Parser Program
-fullProgram = program <* eof
+program =
+  many1 operation
 
 operation :: Parser Op
-operation = simpleOp <|> loop
+operation = many garbage *> (simpleOp <|> loopOp) <* many garbage
 
-simpleChar :: Parser Char
-simpleChar = char '>' <|>
-             char '<' <|>
-             char '+' <|>
-             char '-' <|>
-             char '.' <|>
-             char ','
+simpleTokens :: String
+simpleTokens = "><+-.,"
+
+tokens :: String
+tokens = "[]" ++ simpleTokens
+
+garbage :: Parser Char
+garbage = noneOf tokens
 
 simpleOp :: Parser Op
-simpleOp = fmap build simpleChar
+simpleOp = build <$> oneOf simpleTokens
   where build '>' = MRight
         build '<' = MLeft
         build '+' = Inc
@@ -49,9 +45,9 @@ simpleOp = fmap build simpleChar
         build ',' = In
         build _   = error "Unknown character"
 
-loop :: Parser Op
-loop = Loop <$> between (char '[') (char ']') program
+loopOp :: Parser Op
+loopOp = Loop <$> between (char '[') (char ']') program
 
 -- | Parse program stream. Returns an error or the parsed 'Program'
 parseProgram :: BS.ByteString -> Either ParseError Program
-parseProgram = runP fullProgram () ""
+parseProgram = runP program () ""
