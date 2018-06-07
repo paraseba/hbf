@@ -2,10 +2,11 @@
 
 module HBF.Types where
 
-import Data.Vector (Vector)
+import Data.Vector.Unboxed (Vector)
 import Data.Int
 import Data.Binary
 import GHC.Generics (Generic)
+import System.IO (hFlush, stdout)
 
 data Op =
     Inc
@@ -27,3 +28,11 @@ data Tape = Tape
   , pointer :: Int
   }
   deriving (Show)
+
+class MachineIO m where
+  putByte :: Int8 -> m ()
+  getByte :: m Int8
+
+instance MachineIO IO where
+  putByte = putChar . toEnum . fromIntegral
+  getByte = fromIntegral . fromEnum <$> (hFlush stdout >> getChar)

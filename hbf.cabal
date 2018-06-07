@@ -29,6 +29,7 @@ library
   -- other-extensions:
   build-depends:       base >=4.10 && <4.11
                      , vector
+                     , primitive
                      , parsec
                      , bytestring
                      , binary

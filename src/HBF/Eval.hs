@@ -1,48 +1,51 @@
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE RecordWildCards #-}
+
 module HBF.Eval
 where
 
 import Data.Int
-import qualified Data.Vector as V
 import qualified Data.Vector.Generic.Mutable as MV
-import Data.Vector (Vector)
+import qualified Data.Vector.Unboxed as V
 import Control.Monad (foldM)
-import System.IO (hFlush, stdout)
+import Control.Monad.Primitive (PrimMonad, PrimState)
 import HBF.Types
 
-tapeRead :: Tape -> Int8
-tapeRead t =
-  memory t V.! pointer t
+eval :: (MachineIO m, PrimMonad m) => Program -> m Tape
+eval = evalWithTape emptyTape
 
-tapeModify :: (Int8 -> Int8) -> Tape -> Tape
-tapeModify f t =
-  t {
-    memory = V.modify ( \mv ->
-      MV.modify mv f (pointer t))
-      (memory t)
-    }
+evalWithTape :: (MachineIO m, PrimMonad m) => Tape -> Program -> m Tape
+evalWithTape Tape{..} program = do
+  mv <- V.unsafeThaw memory
+  finalPointer <- foldM (evalOp mv) pointer program
+  finalMemory <- V.freeze mv
+  return Tape {memory = finalMemory, pointer = finalPointer}
 
-moveTapeRight :: Int -> Tape -> Tape
-moveTapeRight n t =
-  t {pointer = pointer t + n}
+evalOp :: (MV.MVector v Int8, PrimMonad m, MachineIO m) => v (PrimState m) Int8 -> Int -> Op -> m Int
 
-eval :: Program -> IO Tape
-eval = evalWith emptyTape
+evalOp v pointer Inc =
+  MV.modify v (+1) pointer >> return pointer
 
-evalWith :: Tape -> Program -> IO Tape
-evalWith tape p =
-  foldM evalOp tape p
+evalOp v pointer Dec =
+  MV.modify v (subtract 1) pointer >> return pointer
 
-evalOp :: Tape -> Op -> IO Tape
-evalOp t Inc = return $ tapeModify (+1) t
-evalOp t Dec = return $ tapeModify (+(-1)) t
-evalOp t MLeft = return $ moveTapeRight (-1) t
-evalOp t MRight = return $ moveTapeRight 1 t
-evalOp t In = (\x -> tapeModify (\_ -> x) t) . fromIntegral . fromEnum <$> (hFlush stdout >> getChar)
-evalOp t Out = (putChar . toEnum . fromIntegral) (tapeRead t)  >> return t
-evalOp t (Loop ops) =
-  if (tapeRead t /= 0)
-    then  evalWith t ops >>= \tape -> evalOp tape (Loop ops)
-    else (return t)
+evalOp _ pointer MLeft =
+  return $ pointer - 1
+
+evalOp _ pointer MRight =
+  return $ pointer + 1
+
+evalOp v pointer Out =
+  MV.read v pointer >>= putByte >> return pointer
+
+evalOp v pointer In =
+  getByte >>= MV.write v pointer >> return pointer
+
+evalOp v pointer (Loop ops) = do
+  condition <- MV.read v pointer
+  if condition == 0
+    then return pointer
+    else foldM (evalOp v) pointer ops >>= flip (evalOp v) (Loop ops)
 
 tapeSize :: Int
 tapeSize = 100 -- fixme
