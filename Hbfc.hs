@@ -3,26 +3,14 @@
 module Main
 where
 
-import System.Environment (getArgs)
-import HBF.Compiler (compile, ParseError)
+import HBF.Compiler (parse, compile, ParseError)
 import qualified System.Exit as Exit
 import Data.Monoid ((<>))
 
-data CompilerArgs = CompilerArgs
-  { cargsSource :: FilePath
-  , cargsOut :: FilePath
-  }
-
-parseArgs :: IO CompilerArgs
-parseArgs = do
-  (inp:out:_) <- getArgs
-  return CompilerArgs
-    {cargsSource = inp, cargsOut = out}
-
 main :: IO ()
 main = do
-  CompilerArgs {..} <- parseArgs
-  res <- compile cargsSource cargsOut
+  compilerOpts <- parse
+  res <- compile compilerOpts
   either errorOut successOut res
 
 errorOut :: ParseError -> IO ()

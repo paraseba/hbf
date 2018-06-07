@@ -47,6 +47,8 @@ evalOp v pointer (Loop ops) = do
     then return pointer
     else foldM (evalOp v) pointer ops >>= flip (evalOp v) (Loop ops)
 
+{-# INLINE evalOp #-}
+
 tapeSize :: Int
 tapeSize = 30000
 
