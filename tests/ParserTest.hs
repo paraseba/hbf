@@ -29,7 +29,7 @@ basicCodeGen = pack <$> Gen.filter hasCode strings
     chars = Gen.frequency [(5, basicOpCharGen), (2, commentCodeGen)]
     strings = Gen.list (Range.linear 1 100) chars
     hasCode :: String -> Bool
-    hasCode = any (flip elem bfSimpleTokens)
+    hasCode = any (`elem` bfSimpleTokens)
 
 loopGen :: Gen Text
 loopGen = fmap (\code -> "[" <> code <> "]") codeGen

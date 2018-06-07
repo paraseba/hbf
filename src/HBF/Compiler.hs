@@ -31,7 +31,7 @@ compile opts@CompilerOptions{..} = do
 
   parsed <- BFP.parseProgram <$> TIO.readFile cOptsSource
   let program = optimize opts <$> parsed
-  either (return . Left) (\p -> compilePToFile p outPath >> return (Right $ length $ p)) program
+  either (return . Left) (\p -> compilePToFile p outPath >> return (Right $ length p)) program
   where
     outPath = fromMaybe (cOptsSource -<.> "bfc") cOptsOut
 
