@@ -16,7 +16,14 @@ data Op =
   | In
   | Out
   | Loop [Op]
-  deriving (Show, Generic)
+
+  | IncN Int
+  | DecN Int
+  | MLeftN Int
+  | MRightN Int
+  | InN Int
+  | OutN Int
+  deriving (Show, Eq, Generic)
 
 instance Binary Op
 
