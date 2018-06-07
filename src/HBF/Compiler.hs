@@ -11,7 +11,7 @@ import HBF.Types
 import qualified HBF.Parser as BFP
 
 import Data.ByteString.Lazy (ByteString)
-import qualified Data.ByteString.Lazy as BS
+import qualified Data.Text.Lazy.IO as TIO
 import qualified Data.Binary as B
 import Options.Applicative
 import Data.Semigroup ((<>))
@@ -29,7 +29,7 @@ compile opts@CompilerOptions{..} = do
     putStrLn "Compiler options:"
     print opts
 
-  parsed <- BFP.parseProgram <$> BS.readFile cOptsSource
+  parsed <- BFP.parseProgram <$> TIO.readFile cOptsSource
   let program = optimize opts <$> parsed
   either (return . Left) (\p -> compilePToFile p outPath >> return (Right $ length $ p)) program
   where

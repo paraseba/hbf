@@ -30,6 +30,7 @@ library
   build-depends:       base >=4.10 && <4.11
                      , vector
                      , primitive
+                     , text
                      , parsec
                      , bytestring
                      , binary
@@ -39,7 +40,12 @@ library
   hs-source-dirs:      src
   default-language:    Haskell2010
 
-  ghc-options: -O2 -Wall
+  -- ghc-options: -fprof-auto
+  ghc-options: -O2
+               -Wall
+               -fwarn-incomplete-record-updates
+               -fwarn-monomorphism-restriction
+
 
   if flag(dump)
     ghc-options: -ddump-simpl -ddump-stg -ddump-to-file
@@ -53,7 +59,10 @@ executable hbfc
 
   hs-source-dirs:      .
   default-language:    Haskell2010
-  ghc-options: -O2 -Wall
+  ghc-options: -O2
+               -Wall
+               -fwarn-incomplete-record-updates
+               -fwarn-monomorphism-restriction
 
 executable hbf
   main-is:             Hbf.hs
@@ -63,4 +72,36 @@ executable hbf
                      , hbf
   hs-source-dirs:      .
   default-language:    Haskell2010
-  ghc-options: -O2 -Wall
+  ghc-options: -O2
+               -Wall
+               -fwarn-incomplete-record-updates
+               -fwarn-monomorphism-restriction
+
+test-suite test
+  default-language:
+    Haskell2010
+  type:
+    exitcode-stdio-1.0
+  hs-source-dirs:
+    tests
+  main-is:
+    test.hs
+  build-depends:       base >=4.10 && <4.11
+                     , hbf
+                     , text
+                     , HUnit
+                     , hedgehog
+                     , tasty
+                     , tasty-html
+                     , tasty-hedgehog
+                     , tasty-hunit
+                     , tasty-discover
+
+  ghc-options: -O2
+               -Wall
+               -fwarn-incomplete-record-updates
+               -fwarn-monomorphism-restriction
+               -threaded
+               "-with-rtsopts=-N"
+
+  other-modules: ParserTest

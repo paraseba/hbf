@@ -1,6 +1,8 @@
 module HBF.Parser
   (
     parseProgram
+  , bfSimpleTokens
+  , bfTokens
   , Text.Parsec.ParseError
   )
 
@@ -8,16 +10,16 @@ where
 
 import HBF.Types
 
-import Text.Parsec (many1, many, between, ParseError, runP)
+import Text.Parsec (many1, many, between, ParseError, runP, eof)
 import Control.Applicative ((<|>))
 
-import Text.Parsec.ByteString.Lazy
+import Text.Parsec.Text.Lazy
   ( Parser )
 
 import Text.Parsec.Char
   ( char, noneOf, oneOf )
 
-import qualified Data.ByteString.Lazy as BS
+import Data.Text.Lazy (Text)
 
 program :: Parser Program
 program =
@@ -26,17 +28,17 @@ program =
 operation :: Parser Op
 operation = many garbage *> (simpleOp <|> loopOp) <* many garbage
 
-simpleTokens :: String
-simpleTokens = "><+-.,"
+bfSimpleTokens :: String
+bfSimpleTokens = "><+-.,"
 
-tokens :: String
-tokens = "[]" ++ simpleTokens
+bfTokens :: String
+bfTokens = "[]" ++ bfSimpleTokens
 
 garbage :: Parser Char
-garbage = noneOf tokens
+garbage = noneOf bfTokens
 
 simpleOp :: Parser Op
-simpleOp = build <$> oneOf simpleTokens
+simpleOp = build <$> oneOf bfSimpleTokens
   where build '>' = MRight
         build '<' = MLeft
         build '+' = Inc
@@ -49,5 +51,5 @@ loopOp :: Parser Op
 loopOp = Loop <$> between (char '[') (char ']') program
 
 -- | Parse program stream. Returns an error or the parsed 'Program'
-parseProgram :: BS.ByteString -> Either ParseError Program
-parseProgram = runP program () ""
+parseProgram :: Text -> Either ParseError Program
+parseProgram = runP (program <* eof) () ""
