@@ -7,10 +7,12 @@ let
         packages = pkgs.haskell.packages // {
           "${compiler}" = pkgs.haskell.packages."${compiler}".override {
             overrides = haskellPackagesNew: haskellPackagesOld: rec {
-              hbf =
-                haskellPackagesNew.callPackage ./default.nix { };
 
-              withCabal = pkgs.haskell.lib.overrideCabal hbf (oldDerivation: {testToolDepends = [pkgs.cabal-install pkgs.wget];});
+              orig = haskellPackagesNew.callPackage ./default.nix { };
+
+              hbf = haskell.lib.overrideCabal orig (args: args // { doBenchmark = true; });
+
+              withCabal = haskell.lib.overrideCabal hbf (args: args // {testToolDepends = [pkgs.cabal-install pkgs.wget];});
             };
           };
         };

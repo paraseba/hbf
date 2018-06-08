@@ -1,6 +1,7 @@
 stages:
   - test
-#  - deploy
+  - deploy
+
 
 
 test:
@@ -13,4 +14,27 @@ test:
     - nix-channel --update
 
   script:
-    - nix-shell --attr withCabal release.nix --run 'cabal configure --enable-test && cabal build && ./dist/build/test/test'
+    - nix-shell --attr withCabal release.nix --run 'cabal configure --enable-test && cabal build && ./dist/build/test/test && ./dist/build/evalbench -o bench.html'
+
+  artifacts:
+    paths:
+      - bench.html
+
+pages:
+  stage: deploy
+
+  dependencies:
+    - test
+
+  before_script:
+    - mkdir public
+
+  script:
+    - mv bench.html public/
+
+  artifacts:
+    paths:
+      - public
+
+  only:
+    - master
