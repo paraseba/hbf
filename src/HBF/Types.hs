@@ -8,12 +8,12 @@ module HBF.Types where
 import           Control.Exception              (catch)
 import           Control.Monad.Trans.State.Lazy (StateT, get, modify, put)
 import           Data.Binary                    (Binary)
-import           Data.Char                      (ord,chr)
+import           Data.Char                      (chr, ord)
 import           Data.Int
+import           Data.List                      (uncons)
 import           Data.Vector.Unboxed            (Vector)
 import           GHC.Generics                   (Generic)
 import           System.IO                      (hFlush, stdout)
-
 
 data Op =
     Inc
@@ -83,6 +83,6 @@ instance Monad m => MachineIO (StateT MockIO m) where
   getByte :: StateT MockIO m (Maybe Int8)
   getByte = do
     st@MockIO{..} <- get
-    let (h:rest) = machineIn
-    put st{machineIn = rest}
-    return (Just h) -- fixme no input
+    maybe (pure Nothing) (update st) $ uncons machineIn
+    where
+      update st (b, bs) = put st{machineIn = bs} >> return (Just b)
