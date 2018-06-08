@@ -113,4 +113,5 @@ test-suite test
 
   other-modules: ParserTest
                , CompilerTest
+               , EvalTest
                , IntegrationTests
