@@ -1,0 +1,16 @@
+stages:
+  - test
+#  - deploy
+
+
+test:
+  stage: test
+
+  image: nixos/nix:latest
+
+  before_script:
+    - nix-channel --add https://nixos.org/channels/nixpkgs-unstable nixpkgs
+    - nix-channel --update
+
+  script:
+    - nix-shell --attr hbf.env release.nix --run 'cabal configure --enable-test && cabal build && ./dist/build/test/test --html tests.html'
