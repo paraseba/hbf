@@ -8,6 +8,7 @@ where
 import           Control.Monad               (foldM, replicateM)
 import           Control.Monad.Primitive     (PrimMonad, PrimState)
 import           Data.Int
+import           Data.Maybe                  (fromMaybe)
 import qualified Data.Vector.Generic.Mutable as MV
 import qualified Data.Vector.Unboxed         as V
 
@@ -58,7 +59,7 @@ evalOp v pointer (OutN n) =
   MV.read v pointer >>= replicateM n . putByte >> return pointer
 
 evalOp v pointer In =
-  getByte >>= MV.write v pointer >> return pointer
+  getByte >>= MV.write v pointer . fromMaybe 0 >> return pointer
 
 evalOp v pointer (InN n) =
   input >>= MV.write v pointer >> return pointer

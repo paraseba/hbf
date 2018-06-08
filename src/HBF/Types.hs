@@ -1,16 +1,18 @@
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE DeriveGeneric     #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE InstanceSigs      #-}
+{-# LANGUAGE RecordWildCards   #-}
 
 module HBF.Types where
 
-import Data.Vector.Unboxed (Vector)
-import Data.Int
-import Data.Binary (Binary)
-import GHC.Generics (Generic)
-import System.IO (hFlush, stdout)
-import Control.Monad.Trans.State.Lazy (StateT, get, put, modify)
+import           Control.Exception              (catch)
+import           Control.Monad.Trans.State.Lazy (StateT, get, modify, put)
+import           Data.Binary                    (Binary)
+import           Data.Char                      (ord,chr)
+import           Data.Int
+import           Data.Vector.Unboxed            (Vector)
+import           GHC.Generics                   (Generic)
+import           System.IO                      (hFlush, stdout)
 
 
 data Op =
@@ -36,26 +38,40 @@ type Program = [Op]
 
 
 data Tape = Tape
-  { memory :: Vector Int8
+  { memory  :: Vector Int8
   , pointer :: Int
   }
   deriving (Show)
 
 class MachineIO m where
   putByte :: Int8 -> m ()
-  getByte :: m Int8
+  getByte :: m (Maybe Int8)
 
 instance MachineIO IO where
   putByte = putChar . toEnum . fromIntegral
-  getByte = fromIntegral . fromEnum <$> (hFlush stdout >> getChar)
+  getByte = fmap (fromIntegral . fromEnum) <$> (hFlush stdout >> safeGetChar)
+    where
+      safeGetChar =
+        fmap Just getChar `catch` recover
 
-data MockIO = MockIO {machineIn :: [Int8], machineOut :: [Int8]}
+      recover :: IOError -> IO (Maybe Char)
+      recover _ = return Nothing
+
+data MockIO = MockIO {machineIn :: [Int8], machineOut :: [Int8]} deriving (Show, Eq)
 
 mkMockIO :: [Int8] -> MockIO
 mkMockIO input = MockIO {machineIn = input, machineOut = []}
 
+mkMockIOS :: String -> MockIO
+mkMockIOS =
+  mkMockIO . map (fromIntegral . ord)
+
+
 mockOutput :: MockIO -> [Int8]
 mockOutput = reverse . machineOut
+
+mockOutputS :: MockIO -> String
+mockOutputS = map (chr . fromIntegral) . mockOutput
 
 instance Monad m => MachineIO (StateT MockIO m) where
   putByte :: Int8 -> StateT MockIO m ()
@@ -64,9 +80,9 @@ instance Monad m => MachineIO (StateT MockIO m) where
     where
       update st@MockIO{..} = st {machineOut = b:machineOut}
 
-  getByte :: StateT MockIO m Int8
+  getByte :: StateT MockIO m (Maybe Int8)
   getByte = do
     st@MockIO{..} <- get
     let (h:rest) = machineIn
     put st{machineIn = rest}
-    return h
+    return (Just h) -- fixme no input

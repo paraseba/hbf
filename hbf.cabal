@@ -112,4 +112,5 @@ test-suite test
                "-with-rtsopts=-N"
 
   other-modules: ParserTest
+               , CompilerTest
                , IntegrationTests

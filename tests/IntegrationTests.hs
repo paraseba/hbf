@@ -2,8 +2,7 @@
 
 module IntegrationTests where
 
-import           Control.Monad.Trans.State
-import           Data.Char                 (chr)
+import           Control.Monad.Trans.State (execStateT)
 import           System.IO                 (hClose)
 import           System.IO.Temp            (withSystemTempFile)
 import           Test.HUnit
@@ -31,11 +30,8 @@ compile inpath =
     Right _ <- C.compile cOpts
     C.loadFile outpath
 
-stringOutput :: MockIO -> String
-stringOutput = map (chr . fromIntegral) . mockOutput
-
 unit_compileAndEvalSquares :: Assertion
 unit_compileAndEvalSquares = do
   program <- compile squaresPath
   mock <- execStateT (E.eval program) (mkMockIO [])
-  stringOutput mock @?= squaresResult
+  mockOutputS mock @?= squaresResult
