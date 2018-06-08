@@ -62,7 +62,7 @@ executable hbfc
   build-depends:       base >=4.10 && <4.11
                      , hbf
 
-  hs-source-dirs:      .
+  hs-source-dirs:      exe
   default-language:    Haskell2010
   ghc-options: -O2
                -Wall
@@ -75,7 +75,7 @@ executable hbf
   -- other-extensions:
   build-depends:       base >=4.10 && <4.11
                      , hbf
-  hs-source-dirs:      .
+  hs-source-dirs:      exe
   default-language:    Haskell2010
   ghc-options: -O2
                -Wall
