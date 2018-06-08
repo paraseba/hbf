@@ -14,7 +14,7 @@ test:
     - nix-channel --update
 
   script:
-    - nix-shell --attr withCabal release.nix --run 'cabal configure --enable-test && cabal build && ./dist/build/test/test && ./dist/build/evalbench -o bench.html'
+    - nix-shell --attr withCabal release.nix --run 'cabal configure --enable-test && cabal build && ./dist/build/test/test && ./dist/build/evalbench/evalbench -o bench.html'
 
   artifacts:
     paths:
