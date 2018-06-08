@@ -99,7 +99,6 @@ test-suite test
                      , HUnit
                      , hedgehog
                      , tasty
-                     , tasty-html
                      , tasty-hedgehog
                      , tasty-hunit
                      , tasty-discover
