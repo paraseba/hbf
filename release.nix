@@ -10,7 +10,7 @@ let
               hbf =
                 haskellPackagesNew.callPackage ./default.nix { };
 
-              withCabal = pkgs.haskell.lib.overrideCabal hbf (oldDerivation: {testToolDepends = [pkgs.cabal-install];});
+              withCabal = pkgs.haskell.lib.overrideCabal hbf (oldDerivation: {testToolDepends = [pkgs.cabal-install pkgs.wget];});
             };
           };
         };
