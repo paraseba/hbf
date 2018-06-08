@@ -41,6 +41,7 @@ library
                      , parsec
                      , binary
                      , optparse-applicative
+                     , deepseq
 
   hs-source-dirs:      src
   default-language:    Haskell2010
@@ -114,3 +115,22 @@ test-suite test
                , CompilerTest
                , EvalTest
                , IntegrationTests
+
+benchmark evalbench
+  main-is:             BenchEval.hs
+  type:
+    exitcode-stdio-1.0
+  default-language:    Haskell2010
+  -- other-modules:
+  -- other-extensions:
+  build-depends:       base >=4.10 && <4.11
+                     , hbf
+                     , criterion
+                     , text
+                     , transformers
+
+  hs-source-dirs:      bench
+  ghc-options: -O2
+               -Wall
+               -fwarn-incomplete-record-updates
+               -fwarn-monomorphism-restriction

@@ -1,3 +1,4 @@
+{-# LANGUAGE DeriveAnyClass    #-}
 {-# LANGUAGE DeriveGeneric     #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE InstanceSigs      #-}
@@ -5,6 +6,7 @@
 
 module HBF.Types where
 
+import           Control.DeepSeq                (NFData)
 import           Control.Exception              (catch)
 import           Control.Monad.Trans.State.Lazy (StateT, get, modify, put)
 import           Data.Binary                    (Binary)
@@ -30,7 +32,7 @@ data Op =
   | MRightN Int
   | InN Int
   | OutN Int
-  deriving (Show, Eq, Generic)
+  deriving (Show, Eq, Generic, NFData)
 
 instance Binary Op
 
