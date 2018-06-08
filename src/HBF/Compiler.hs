@@ -20,6 +20,7 @@ import qualified HBF.Parser           as BFP
 import           HBF.Types
 
 import           System.FilePath      ((-<.>))
+import           System.Environment      (getArgs)
 
 compilePToFile :: Program -> FilePath -> IO ()
 compilePToFile = flip B.encodeFile
@@ -93,5 +94,11 @@ options = info (optionsP <**> helper)
   <> progDesc "Compile Brainfuck code in SRC file"
   <> header "An optimizing Brainfuck compiler and evaluator")
 
+parsePure :: [String] -> ParserResult CompilerOptions
+parsePure = execParserPure defaultPrefs options
+
+unsafeParse :: [String] -> IO CompilerOptions
+unsafeParse = handleParseResult . parsePure
+
 parse :: IO CompilerOptions
-parse = execParser options
+parse = getArgs >>= unsafeParse
