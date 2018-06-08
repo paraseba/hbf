@@ -13,4 +13,4 @@ test:
     - nix-channel --update
 
   script:
-    - nix-shell --attr hbf.env release.nix --run 'cabal configure --enable-test && cabal build && ./dist/build/test/test --html tests.html'
+    - nix-shell -p cabal-install --attr hbf.env release.nix --run 'cabal configure --enable-test && cabal build && ./dist/build/test/test --html tests.html'
