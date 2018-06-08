@@ -18,9 +18,9 @@ eval = evalWithTape emptyTape
 
 evalWithTape :: (MachineIO m, PrimMonad m) => Tape -> Program -> m Tape
 evalWithTape Tape{..} program = do
-  mv <- V.unsafeThaw memory
+  mv <- V.thaw memory
   finalPointer <- foldM (evalOp mv) pointer program
-  finalMemory <- V.freeze mv
+  finalMemory <- V.unsafeFreeze mv
   return Tape {memory = finalMemory, pointer = finalPointer}
 
 evalOp
