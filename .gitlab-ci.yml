@@ -12,25 +12,25 @@ test:
   before_script:
     - nix-channel --add https://nixos.org/channels/nixpkgs-unstable nixpkgs
     - nix-channel --update
+    - mkdir -p public
 
   script:
-    - nix-shell --attr withCabal release.nix --run 'cabal configure --enable-test && cabal build && ./dist/build/test/test && ./dist/build/evalbench/evalbench -o bench.html'
+    - > nix-shell --attr withCabal release.nix --run '
+    cabal clean && cabal configure --enable-tests --enable-coverage &&
+    cabal build && cabal test && cp -r dist/hpc/vanilla/html/test public/coverage &&
+    cabal clean && cabal configure --enable-benchmarks && cabal build &&
+    ./dist/build/evalbench/evalbench -o bench.html &&
+    cp bench.html public'
 
   artifacts:
     paths:
-      - bench.html
+      - public
 
 pages:
   stage: deploy
 
   dependencies:
     - test
-
-  before_script:
-    - mkdir public
-
-  script:
-    - mv bench.html public/
 
   artifacts:
     paths:

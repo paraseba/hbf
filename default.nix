@@ -1,7 +1,7 @@
 { mkDerivation, base, binary, bytestring, criterion, deepseq
 , filepath, hedgehog, HUnit, optparse-applicative, parsec
 , primitive, stdenv, tasty, tasty-discover, tasty-hedgehog
-, tasty-html, tasty-hunit, temporary, text, transformers, vector
+, tasty-hunit, temporary, text, transformers, vector
 }:
 mkDerivation {
   pname = "hbf";
@@ -15,8 +15,8 @@ mkDerivation {
   ];
   executableHaskellDepends = [ base ];
   testHaskellDepends = [
-    base hedgehog HUnit tasty tasty-discover tasty-hedgehog tasty-html
-    tasty-hunit temporary text transformers
+    base hedgehog HUnit tasty tasty-discover tasty-hedgehog tasty-hunit
+    temporary text transformers
   ];
   benchmarkHaskellDepends = [ base criterion text transformers ];
   license = stdenv.lib.licenses.gpl3;
