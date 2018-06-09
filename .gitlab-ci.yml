@@ -15,12 +15,12 @@ test:
     - mkdir -p public
 
   script:
-    - "nix-shell --attr withCabal release.nix --run '
-    cabal clean && cabal configure --enable-tests --enable-coverage &&
-    cabal build && cabal test && cp -r dist/hpc/vanilla/html/test public/coverage &&
-    cabal clean && cabal configure --enable-benchmarks && cabal build &&
-    ./dist/build/evalbench/evalbench -o bench.html &&
-    cp bench.html public'"
+    - nix-shell --attr withCabal release.nix --run
+        'cabal clean && cabal configure --enable-tests --enable-coverage &&
+        cabal build && cabal test && cp -r dist/hpc/vanilla/html/test public/coverage &&
+        cabal clean && cabal configure --enable-benchmarks && cabal build &&
+        ./dist/build/evalbench/evalbench -o bench.html &&
+        cp bench.html public'
 
   artifacts:
     paths:
