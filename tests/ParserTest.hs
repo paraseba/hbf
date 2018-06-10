@@ -4,37 +4,15 @@ module ParserTest where
 
 import           Data.Either    (isLeft, isRight)
 import           Data.Semigroup ((<>))
-import           Data.Text.Lazy (Text, pack)
 import           Hedgehog
 import qualified Hedgehog       as H
 import qualified Hedgehog.Gen   as Gen
-import qualified Hedgehog.Range as Range
 import           Test.HUnit
 import qualified Test.HUnit     as HU
 
 import           HBF.Parser
 import           HBF.Types
-
-basicOpCharGen :: Gen Char
-basicOpCharGen = Gen.element bfSimpleTokens
-
-commentCodeGen :: Gen Char
-commentCodeGen = Gen.filter (not . flip elem bfTokens) Gen.unicode
-
-basicCodeGen :: Gen Text
-basicCodeGen = pack <$> Gen.filter hasCode strings
-  where
-    chars = Gen.frequency [(5, basicOpCharGen), (2, commentCodeGen)]
-    strings = Gen.list (Range.linear 1 100) chars
-    hasCode :: String -> Bool
-    hasCode = any (`elem` bfSimpleTokens)
-
-loopGen :: Gen Text
-loopGen = fmap (\code -> "[" <> code <> "]") codeGen
-
-codeGen :: Gen Text
-codeGen = (<>) <$> block <*>  block
-  where block = Gen.frequency [(5, basicCodeGen), (1, loopGen)]
+import           Helper
 
 
 unit_parseBasicProgram :: Assertion

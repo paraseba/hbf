@@ -1,12 +1,16 @@
 module CompilerTest where
 
-import           Test.HUnit
-import qualified Data.Text.Lazy.IO    as TIO
 import           Control.Monad.Trans.State (execStateT)
+import           Data.Foldable             (toList)
+import qualified Data.Text.Lazy.IO         as TIO
+import           Hedgehog
+import qualified Hedgehog                  as H
+import           Test.HUnit
 
-import HBF.Compiler
-import qualified HBF.Eval as E
+import           HBF.Compiler
+import qualified HBF.Eval                  as E
 import           HBF.Types
+import           Helper
 
 unit_fusionOptimization :: Assertion
 unit_fusionOptimization =
@@ -37,3 +41,34 @@ unit_optimizationsDontChangeResults = do
 
   where
     exec program = execStateT (E.eval program) (mkMockIOS "25454\n")
+
+fullyFused :: [OptimizedOp] -> Bool
+fullyFused ops =
+  all (uncurry fused) (zip (toList ops) (tail (toList ops)))
+  where
+    fused (IncN _) (IncN _) = False
+    fused (MRightN _) (MRightN _) = False
+    fused (InN _) (InN _) = False
+    fused (OutN _) (OutN _) = False
+    fused (OLoop inner) _ = fullyFused inner
+    fused _ (OLoop inner) = fullyFused inner
+    fused _ _ = True
+
+unit_fullyFusedTest :: Assertion
+unit_fullyFusedTest =
+  not (fullyFused [IncN 1, IncN 4]) &&
+    not (fullyFused [IncN 1, OLoop [IncN 1, OLoop [MRightN 1, MRightN 2]]]) &&
+    fullyFused [IncN 1, MRightN 2]  @=? True
+
+hprop_fusionDoesntLeaveAnythingToBeFused :: Property
+hprop_fusionDoesntLeaveAnythingToBeFused = property $ do
+  program <- forAll programGen
+  let optimized = fusionOpt . toIR $ program
+  H.assert $
+    all noNoOp optimized && fullyFused (instructions optimized)
+  where
+    noNoOp (IncN n)    = n /= 0
+    noNoOp (MRightN n) = n /= 0
+    noNoOp (InN n)     = n /= 0
+    noNoOp (OutN n)    = n /= 0
+    noNoOp (OLoop ops) = all noNoOp ops

@@ -115,6 +115,7 @@ test-suite test
                , CompilerTest
                , EvalTest
                , IntegrationTests
+               , Helper
 
 benchmark evalbench
   main-is:             BenchEval.hs
