@@ -11,7 +11,7 @@ import           HBF.Types
 unit_canFactorNumbers :: Assertion
 unit_canFactorNumbers = do
   code <- TIO.readFile "tests/factor.bf"
-  let (Right program) = C.inMemoryCompile C.defaultCompilerOptions code
+  let (Right (program,_)) = C.inMemoryCompile C.defaultCompilerOptions code
   finalState <- exec program
   mockOutputS finalState @?= "25454: 2 11 13 89\n"
   where

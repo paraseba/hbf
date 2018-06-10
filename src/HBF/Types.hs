@@ -1,5 +1,7 @@
 {-# LANGUAGE DeriveAnyClass    #-}
+{-# LANGUAGE DeriveFunctor     #-}
 {-# LANGUAGE DeriveGeneric     #-}
+{-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE InstanceSigs      #-}
 {-# LANGUAGE RecordWildCards   #-}
@@ -13,30 +15,41 @@ import           Data.Binary                    (Binary)
 import           Data.Char                      (chr, ord)
 import           Data.Int
 import           Data.List                      (uncons)
+import           Data.Semigroup                 (Semigroup (..))
 import           Data.Vector.Unboxed            (Vector)
 import           GHC.Generics                   (Generic)
 import           System.IO                      (hFlush, stdout)
 
-data Op =
+data BasicOp =
     Inc
   | Dec
   | MLeft
   | MRight
   | In
   | Out
-  | Loop [Op]
+  | Loop [BasicOp]
+  deriving (Show, Eq)
 
-  | IncN Int
-  | DecN Int
-  | MLeftN Int
+data OptimizedOp =
+    IncN Int
   | MRightN Int
   | InN Int
   | OutN Int
-  deriving (Show, Eq, Generic, NFData)
+  | OLoop [OptimizedOp]
+  deriving (Show, Eq, Generic, Binary, NFData)
 
-instance Binary Op
+newtype Program op = Program { instructions :: [op] }
+  deriving (Show, Eq, Functor, Foldable, Traversable, Generic, Binary, NFData)
 
-type Program = [Op]
+instance Semigroup (Program op) where
+  Program a <> Program b = Program $ a <> b
+
+instance Monoid (Program op) where
+  mappend = (<>)
+  mempty = Program mempty
+
+type UnoptimizedProgram = Program BasicOp
+type OptimizedProgram = Program OptimizedOp
 
 
 data Tape = Tape

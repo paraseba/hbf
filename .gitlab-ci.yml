@@ -32,6 +32,7 @@ pages:
   dependencies:
     - test
 
+  # it needs a script even if we do nothing
   script: ls -lRh
 
   artifacts:

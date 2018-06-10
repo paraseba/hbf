@@ -8,11 +8,11 @@ import           HBF.Compiler              as C
 import qualified HBF.Eval                  as E
 import           HBF.Types
 
-setupEnv :: IO (Program, Program)
+setupEnv :: IO (OptimizedProgram, OptimizedProgram)
 setupEnv = do
   code <- TIO.readFile "tests/factor.bf"
-  let (Right optimized) = C.inMemoryCompile C.defaultCompilerOptions code
-  let (Right unoptimized) = inMemoryCompile noOptimizationCompilerOptions code
+  let (Right (optimized,_)) = C.inMemoryCompile C.defaultCompilerOptions code
+  let (Right (unoptimized,_)) = inMemoryCompile noOptimizationCompilerOptions code
   return (optimized, unoptimized)
 
 factorInput :: MockIO

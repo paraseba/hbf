@@ -39,11 +39,11 @@ codeGen = (<>) <$> block <*>  block
 
 unit_parseBasicProgram :: Assertion
 unit_parseBasicProgram =
-  parseProgram "+><-[+,.[-]<<]" @?=
-    Right [Inc,MRight,MLeft,Dec,
-           Loop [Inc,In,Out,
-                 Loop [Dec],
-                 MLeft,MLeft]]
+  parseProgram "+><-[+,.[-]<<]" @?= Right (Program result)
+  where result = [Inc,MRight,MLeft,Dec,
+                  Loop [Inc,In,Out,
+                        Loop [Dec],
+                        MLeft,MLeft]]
 
 unit_cantParseEmpty :: Assertion
 unit_cantParseEmpty =

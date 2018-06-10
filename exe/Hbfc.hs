@@ -4,7 +4,7 @@ where
 import           Data.Monoid  ((<>))
 import qualified System.Exit  as Exit
 
-import           HBF.Compiler (ParseError, compile, parse)
+import           HBF.Compiler (ParseError, CompilationSummary, compile, parse)
 
 main :: IO ()
 main = do
@@ -17,6 +17,6 @@ errorOut err = do
   putStrLn "Error compiling code"
   Exit.die (show err)
 
-successOut :: Int -> IO ()
-successOut n =
-  putStrLn $ "Compiled code: " <> show n <> " instructions."
+successOut :: CompilationSummary -> IO ()
+successOut s =
+  putStrLn $ "Compiled code:\n" <> show s

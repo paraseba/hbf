@@ -10,58 +10,105 @@ where
 import           Control.Monad        (when)
 import qualified Data.Binary          as B
 import           Data.ByteString.Lazy (ByteString)
-import           Data.List            (group)
 import           Data.Maybe           (fromMaybe)
 import           Data.Semigroup       ((<>))
-import Data.Text.Lazy    (Text)
+import           Data.Semigroup       (Semigroup (..))
+import           Data.Text.Lazy       (Text)
 import qualified Data.Text.Lazy.IO    as TIO
 import           Options.Applicative
+import           System.Environment   (getArgs)
+import           System.FilePath      ((-<.>))
 
 import qualified HBF.Parser           as BFP
 import           HBF.Types
 
-import           System.FilePath      ((-<.>))
-import           System.Environment      (getArgs)
 
-compilePToFile :: Program -> FilePath -> IO ()
-compilePToFile = flip B.encodeFile
+saveCompilerOutput :: OptimizedProgram -> FilePath -> IO ()
+saveCompilerOutput = flip B.encodeFile . instructions
 
-inMemoryCompile :: CompilerOptions -> Text -> (Either BFP.ParseError Program)
+inMemoryCompile :: CompilerOptions -> Text -> Either BFP.ParseError (OptimizedProgram, CompilationSummary)
 inMemoryCompile opts code =
-  optimize opts <$> BFP.parseProgram code
+  (\p -> (p, summarizeCompilation p)) . optimize opts <$> BFP.parseProgram code
 
-compile :: CompilerOptions -> IO (Either BFP.ParseError Int)
+data CompilationSummary =
+  CompilationSummary {compNumInstructions :: Int} -- ToDo improve
+  deriving (Show)
+
+summarizeCompilation :: OptimizedProgram -> CompilationSummary
+summarizeCompilation = CompilationSummary . length . instructions
+
+compile :: CompilerOptions -> IO (Either BFP.ParseError CompilationSummary)
 compile opts@CompilerOptions{..} = do
   when cOptsVerbose $ do
     putStrLn "Compiler options:"
     print opts
 
-  program <- inMemoryCompile opts <$> TIO.readFile cOptsSource
+  compileResult <- inMemoryCompile opts <$> TIO.readFile cOptsSource
+  either (return . Left) (\p -> save p >> (return . Right . snd) p) compileResult
 
-  either (return . Left) (\p -> compilePToFile p outPath >> return (Right $ length p)) program
   where
     outPath = fromMaybe (cOptsSource -<.> "bfc") cOptsOut
+    save (program, _) = saveCompilerOutput program outPath
 
-optimize :: CompilerOptions -> Program -> Program
-optimize opts@CompilerOptions{..} p =
-  if cOptsFusionOptimization
-    then group p >>= crush
-    else p
-
+optimize :: CompilerOptions -> UnoptimizedProgram -> OptimizedProgram
+optimize CompilerOptions{..} p =
+  foldl (flip ($)) base optimizations
   where
-    crush l@(Loop _:_) = map (\(Loop ops) -> Loop (optimize opts ops)) l
-    crush l@(Inc:_)    = [IncN (length l)]
-    crush l@(Dec:_)    = [DecN (length l)]
-    crush l@(MLeft:_)  = [MLeftN (length l)]
-    crush l@(MRight:_) = [MRightN (length l)]
-    crush l@(In:_)     = [InN (length l)]
-    crush l@(Out:_)    = [OutN (length l)]
-    crush other        = other
+    base = toIR p
+    opt condition f program = if condition then f program else program
 
-load :: ByteString -> Program
+    optimizations = [
+      opt cOptsFusionOptimization fusionOpt
+      ]
+
+toIR :: UnoptimizedProgram -> OptimizedProgram
+toIR = fmap convert
+  where
+    convert (Loop l) = OLoop $ convert <$> l
+    convert Inc      = IncN 1
+    convert Dec      = IncN (-1)
+    convert MRight   = MRightN 1
+    convert MLeft    = MRightN (-1)
+    convert In       = InN 1
+    convert Out      = OutN 1
+
+newtype FusedProgram = Fused {unfused :: OptimizedProgram}
+
+instance Semigroup FusedProgram where
+  Fused (Program p1) <> Fused (Program p2) =
+    Fused $ Program $ fuse p1 p2
+    where
+      fuse :: [OptimizedOp] -> [OptimizedOp] -> [OptimizedOp]
+      fuse [] ops         = ops
+      fuse ops []         = ops
+      fuse [op1] (op2:more) = join op1 op2 ++ more
+      fuse (op1:more) ops2 = op1 : fuse more ops2
+
+      join :: OptimizedOp -> OptimizedOp -> [OptimizedOp]
+      join (IncN a) (IncN b)       = ifNotZero IncN $ a + b
+      join (MRightN a) (MRightN b) = ifNotZero MRightN $ a + b
+      join (InN a) (InN b)         = ifNotZero InN $ a + b
+      join (OutN a) (OutN b)       = ifNotZero OutN $ a + b
+      join a b                     = [a, b]
+
+      ifNotZero f n = [f n | n /= 0]
+
+instance Monoid FusedProgram where
+  mempty = Fused mempty
+  mappend = (<>)
+
+fusionOpt :: OptimizedProgram -> OptimizedProgram
+fusionOpt =
+  unfused . foldMap (Fused . Program . optimizeIn) . instructions
+  where
+    optimizeIn (OLoop as) = [OLoop inner | not (null inner)]
+      where inner = instructions $ fusionOpt $ Program as
+    optimizeIn other = [other]
+
+load :: ByteString -> OptimizedProgram
 load = B.decode
 
-loadFile :: FilePath -> IO Program
+loadFile :: FilePath -> IO OptimizedProgram
 loadFile = B.decodeFile
 
 data CompilerOptions = CompilerOptions
