@@ -1,13 +1,9 @@
 module HBF.Parser
-  (
-    parseProgram
+  ( parseProgram
   , bfSimpleTokens
   , bfTokens
   , Text.Parsec.ParseError
-  )
-
-where
-
+  ) where
 
 import           Control.Applicative   ((<|>))
 import           Data.Text.Lazy        (Text)
@@ -19,8 +15,7 @@ import           Text.Parsec.Text.Lazy (Parser)
 import           HBF.Types
 
 program :: Parser UnoptimizedProgram
-program =
-  Program <$> many1 operation
+program = Program <$> many1 operation
 
 operation :: Parser BasicOp
 operation = many garbage *> (simpleOp <|> loopOp) <* many garbage
@@ -36,13 +31,14 @@ garbage = noneOf bfTokens
 
 simpleOp :: Parser BasicOp
 simpleOp = build <$> oneOf bfSimpleTokens
-  where build '>' = MRight
-        build '<' = MLeft
-        build '+' = Inc
-        build '-' = Dec
-        build '.' = Out
-        build ',' = In
-        build _   = error "Unknown character"
+  where
+    build '>' = MRight
+    build '<' = MLeft
+    build '+' = Inc
+    build '-' = Dec
+    build '.' = Out
+    build ',' = In
+    build _   = error "Unknown character"
 
 loopOp :: Parser BasicOp
 loopOp = Loop . instructions <$> between (char '[') (char ']') program

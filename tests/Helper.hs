@@ -29,18 +29,19 @@ loopGen :: Gen Text
 loopGen = fmap (\code -> "[" <> code <> "]") codeGen
 
 codeGen :: Gen Text
-codeGen = (<>) <$> block <*>  block
-  where block = Gen.frequency [(10, basicCodeGen), (1, loopGen)]
-
+codeGen = (<>) <$> block <*> block
+  where
+    block = Gen.frequency [(10, basicCodeGen), (1, loopGen)]
 
 programGen :: Gen UnoptimizedProgram
-programGen = Program <$>
-  Gen.list (Range.linear 0 120)(Gen.recursive weights [basic] [Loop . instructions <$> programGen])
+programGen =
+  Program <$>
+  Gen.list
+    (Range.linear 0 120)
+    (Gen.recursive weights [basic] [Loop . instructions <$> programGen])
   where
     basic :: Gen BasicOp
     basic = Gen.element [Inc, Dec, MLeft, MRight, In, Out]
-
     weights [nonrec] = nonrec
-    weights (nonrec:recursive:_) =
-      Gen.frequency [(10, nonrec), (1, recursive)]
+    weights (nonrec:recursive:_) = Gen.frequency [(10, nonrec), (1, recursive)]
     weights [] = error "programGen: unexpected condition"

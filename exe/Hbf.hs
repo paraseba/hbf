@@ -1,12 +1,11 @@
 {-# LANGUAGE RecordWildCards #-}
 
-module Main
-where
+module Main where
 
-import System.Environment (getArgs)
-import HBF.Eval (eval)
-import HBF.Compiler (loadFile)
-import System.IO (hFlush, stdout)
+import           HBF.Compiler       (loadFile)
+import           HBF.Eval           (eval)
+import           System.Environment (getArgs)
+import           System.IO          (hFlush, stdout)
 
 data VMArgs = VMArgs
   { vmargsIR :: FilePath
@@ -15,8 +14,7 @@ data VMArgs = VMArgs
 parseArgs :: IO VMArgs
 parseArgs = do
   (inp:_) <- getArgs
-  return VMArgs
-    {vmargsIR = inp}
+  return VMArgs {vmargsIR = inp}
 
 main :: IO ()
 main = do

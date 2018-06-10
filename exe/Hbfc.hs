@@ -1,10 +1,9 @@
-module Main
-where
+module Main where
 
 import           Data.Monoid  ((<>))
 import qualified System.Exit  as Exit
 
-import           HBF.Compiler (ParseError, CompilationSummary, compile, parse)
+import           HBF.Compiler (CompilationSummary, ParseError, compile, parse)
 
 main :: IO ()
 main = do
@@ -18,5 +17,4 @@ errorOut err = do
   Exit.die (show err)
 
 successOut :: CompilationSummary -> IO ()
-successOut s =
-  putStrLn $ "Compiled code:\n" <> show s
+successOut s = putStrLn $ "Compiled code:\n" <> show s

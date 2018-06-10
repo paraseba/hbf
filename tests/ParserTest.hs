@@ -14,27 +14,24 @@ import           HBF.Parser
 import           HBF.Types
 import           Helper
 
-
 unit_parseBasicProgram :: Assertion
 unit_parseBasicProgram =
   parseProgram "+><-[+,.[-]<<]" @?= Right (Program result)
-  where result = [Inc,MRight,MLeft,Dec,
-                  Loop [Inc,In,Out,
-                        Loop [Dec],
-                        MLeft,MLeft]]
+  where
+    result =
+      [Inc, MRight, MLeft, Dec, Loop [Inc, In, Out, Loop [Dec], MLeft, MLeft]]
 
 unit_cantParseEmpty :: Assertion
-unit_cantParseEmpty =
-  HU.assert $ isLeft $ parseProgram ""
+unit_cantParseEmpty = HU.assert $ isLeft $ parseProgram ""
 
 hprop_parseRandomPrograms :: Property
-hprop_parseRandomPrograms = property $
-  forAll codeGen >>=
-    H.assert . isRight . parseProgram
+hprop_parseRandomPrograms =
+  property $ forAll codeGen >>= H.assert . isRight . parseProgram
 
 hprop_cantParseUnbalancedLoop :: Property
-hprop_cantParseUnbalancedLoop = property $ do
-  p1 <- forAll $ Gen.frequency [(10,codeGen), (1, Gen.constant "")]
-  p2 <- forAll $ Gen.frequency [(10,codeGen), (1, Gen.constant "")]
-  braket <- forAll $ Gen.element ["[", "]"]
-  H.assert $ isLeft $ parseProgram (p1 <> braket <> p2)
+hprop_cantParseUnbalancedLoop =
+  property $ do
+    p1 <- forAll $ Gen.frequency [(10, codeGen), (1, Gen.constant "")]
+    p2 <- forAll $ Gen.frequency [(10, codeGen), (1, Gen.constant "")]
+    braket <- forAll $ Gen.element ["[", "]"]
+    H.assert $ isLeft $ parseProgram (p1 <> braket <> p2)

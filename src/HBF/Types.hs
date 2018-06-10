@@ -20,8 +20,8 @@ import           Data.Vector.Unboxed            (Vector)
 import           GHC.Generics                   (Generic)
 import           System.IO                      (hFlush, stdout)
 
-data BasicOp =
-    Inc
+data BasicOp
+  = Inc
   | Dec
   | MLeft
   | MRight
@@ -30,16 +30,17 @@ data BasicOp =
   | Loop [BasicOp]
   deriving (Show, Eq)
 
-data OptimizedOp =
-    IncN Int
+data OptimizedOp
+  = IncN Int
   | MRightN Int
   | InN Int
   | OutN Int
   | OLoop [OptimizedOp]
   deriving (Show, Eq, Generic, Binary, NFData)
 
-newtype Program op = Program { instructions :: [op] }
-  deriving (Show, Eq, Functor, Foldable, Traversable, Generic, Binary, NFData)
+newtype Program op = Program
+  { instructions :: [op]
+  } deriving (Show, Eq, Functor, Foldable, Traversable, Generic, Binary, NFData)
 
 instance Semigroup (Program op) where
   Program a <> Program b = Program $ a <> b
@@ -49,14 +50,13 @@ instance Monoid (Program op) where
   mempty = Program mempty
 
 type UnoptimizedProgram = Program BasicOp
-type OptimizedProgram = Program OptimizedOp
 
+type OptimizedProgram = Program OptimizedOp
 
 data Tape = Tape
   { memory  :: Vector Int8
   , pointer :: Int
-  }
-  deriving (Show)
+  } deriving (Show)
 
 class MachineIO m where
   putByte :: Int8 -> m ()
@@ -66,21 +66,20 @@ instance MachineIO IO where
   putByte = putChar . toEnum . fromIntegral
   getByte = fmap (fromIntegral . fromEnum) <$> (hFlush stdout >> safeGetChar)
     where
-      safeGetChar =
-        fmap Just getChar `catch` recover
-
+      safeGetChar = fmap Just getChar `catch` recover
       recover :: IOError -> IO (Maybe Char)
       recover _ = return Nothing
 
-data MockIO = MockIO {machineIn :: [Int8], machineOut :: [Int8]} deriving (Show, Eq)
+data MockIO = MockIO
+  { machineIn  :: [Int8]
+  , machineOut :: [Int8]
+  } deriving (Show, Eq)
 
 mkMockIO :: [Int8] -> MockIO
 mkMockIO input = MockIO {machineIn = input, machineOut = []}
 
 mkMockIOS :: String -> MockIO
-mkMockIOS =
-  mkMockIO . map (fromIntegral . ord)
-
+mkMockIOS = mkMockIO . map (fromIntegral . ord)
 
 mockOutput :: MockIO -> [Int8]
 mockOutput = reverse . machineOut
@@ -90,14 +89,12 @@ mockOutputS = map (chr . fromIntegral) . mockOutput
 
 instance Monad m => MachineIO (StateT MockIO m) where
   putByte :: Int8 -> StateT MockIO m ()
-  putByte b =
-    modify update
+  putByte b = modify update
     where
-      update st@MockIO{..} = st {machineOut = b:machineOut}
-
+      update st@MockIO {..} = st {machineOut = b : machineOut}
   getByte :: StateT MockIO m (Maybe Int8)
   getByte = do
-    st@MockIO{..} <- get
+    st@MockIO {..} <- get
     maybe (pure Nothing) (update st) $ uncons machineIn
     where
-      update st (b, bs) = put st{machineIn = bs} >> return (Just b)
+      update st (b, bs) = put st {machineIn = bs} >> return (Just b)

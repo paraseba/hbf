@@ -11,16 +11,14 @@ import qualified HBF.Compiler              as C
 import qualified HBF.Eval                  as E
 import           HBF.Types
 
-
 squaresPath :: FilePath
 squaresPath = "tests/squares.bf"
 
 squaresResult :: String
-squaresResult =
-  concatMap ((++"\n"). show) sq
+squaresResult = concatMap ((++ "\n") . show) sq
   where
     sq :: [Int]
-    sq = takeWhile (<=10000) $ map (\n -> n * n) [0..]
+    sq = takeWhile (<= 10000) $ map (\n -> n * n) [0 ..]
 
 compile :: FilePath -> IO OptimizedProgram
 compile inpath =
