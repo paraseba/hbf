@@ -21,21 +21,21 @@ import           GHC.Generics                   (Generic)
 import           System.IO                      (hFlush, stdout)
 
 data BasicOp
-  = Inc
-  | Dec
-  | MLeft
-  | MRight
-  | In
-  | Out
-  | Loop [BasicOp]
+  = BInc
+  | BDec
+  | BLeft
+  | BRight
+  | BIn
+  | BOut
+  | BLoop [BasicOp]
   deriving (Show, Eq)
 
 data OptimizedOp
-  = IncN Int
-  | MRightN Int
-  | InN Int
-  | OutN Int
-  | OLoop [OptimizedOp]
+  = Inc Int
+  | MRight Int
+  | In Int
+  | Out Int
+  | Loop [OptimizedOp]
   deriving (Show, Eq, Generic, Binary, NFData)
 
 newtype Program op = Program

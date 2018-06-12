@@ -19,7 +19,12 @@ unit_parseBasicProgram =
   parseProgram "+><-[+,.[-]<<]" @?= Right (Program result)
   where
     result =
-      [Inc, MRight, MLeft, Dec, Loop [Inc, In, Out, Loop [Dec], MLeft, MLeft]]
+      [ BInc
+      , BRight
+      , BLeft
+      , BDec
+      , BLoop [BInc, BIn, BOut, BLoop [BDec], BLeft, BLeft]
+      ]
 
 unit_cantParseEmpty :: Assertion
 unit_cantParseEmpty = HU.assert $ isLeft $ parseProgram ""

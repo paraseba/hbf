@@ -16,32 +16,26 @@ unit_fusionOptimization :: Assertion
 unit_fusionOptimization = fusionOpt (Program p) @?= Program expected
   where
     p =
-      [ IncN 2
-      , IncN (-1)
-      , MRightN 3
-      , MRightN (-1)
-      , IncN 1
-      , InN 1
-      , InN 2
-      , OutN 3
-      , OutN 4
-      , IncN 2
-      , IncN (-2) -- should eliminate this
-      , OLoop
-          [ IncN 1
-          , IncN 2
-          , OLoop [MRightN 1, MRightN 2]
-          , OLoop [MRightN 1, MRightN (-1)] -- should eliminate this whole loop
+      [ Inc 2
+      , Inc (-1)
+      , MRight 3
+      , MRight (-1)
+      , Inc 1
+      , In 1
+      , In 2
+      , Out 3
+      , Out 4
+      , Inc 2
+      , Inc (-2) -- should eliminate this
+      , Loop
+          [ Inc 1
+          , Inc 2
+          , Loop [MRight 1, MRight 2]
+          , Loop [MRight 1, MRight (-1)] -- should eliminate this whole loop
           ]
       ]
     expected =
-      [ IncN 1
-      , MRightN 2
-      , IncN 1
-      , InN 3
-      , OutN 7
-      , OLoop [IncN 3, OLoop [MRightN 3]]
-      ]
+      [Inc 1, MRight 2, Inc 1, In 3, Out 7, Loop [Inc 3, Loop [MRight 3]]]
 
 unit_optimizationsDontChangeResults :: Assertion
 unit_optimizationsDontChangeResults = do
@@ -58,19 +52,19 @@ unit_optimizationsDontChangeResults = do
 fullyFused :: [OptimizedOp] -> Bool
 fullyFused ops = all (uncurry fused) (zip (toList ops) (tail (toList ops)))
   where
-    fused (IncN _) (IncN _)       = False
-    fused (MRightN _) (MRightN _) = False
-    fused (InN _) (InN _)         = False
-    fused (OutN _) (OutN _)       = False
-    fused (OLoop inner) _         = fullyFused inner
-    fused _ (OLoop inner)         = fullyFused inner
-    fused _ _                     = True
+    fused (Inc _) (Inc _)       = False
+    fused (MRight _) (MRight _) = False
+    fused (In _) (In _)         = False
+    fused (Out _) (Out _)       = False
+    fused (Loop inner) _        = fullyFused inner
+    fused _ (Loop inner)        = fullyFused inner
+    fused _ _                   = True
 
 unit_fullyFusedTest :: Assertion
 unit_fullyFusedTest =
-  not (fullyFused [IncN 1, IncN 4]) &&
-  not (fullyFused [IncN 1, OLoop [IncN 1, OLoop [MRightN 1, MRightN 2]]]) &&
-  fullyFused [IncN 1, MRightN 2] @=? True
+  not (fullyFused [Inc 1, Inc 4]) &&
+  not (fullyFused [Inc 1, Loop [Inc 1, Loop [MRight 1, MRight 2]]]) &&
+  fullyFused [Inc 1, MRight 2] @=? True
 
 hprop_fusionDoesntLeaveAnythingToBeFused :: Property
 hprop_fusionDoesntLeaveAnythingToBeFused =
@@ -79,8 +73,8 @@ hprop_fusionDoesntLeaveAnythingToBeFused =
     let optimized = fusionOpt . toIR $ program
     H.assert $ all noNoOp optimized && fullyFused (instructions optimized)
   where
-    noNoOp (IncN n)    = n /= 0
-    noNoOp (MRightN n) = n /= 0
-    noNoOp (InN n)     = n /= 0
-    noNoOp (OutN n)    = n /= 0
-    noNoOp (OLoop ops) = all noNoOp ops
+    noNoOp (Inc n)    = n /= 0
+    noNoOp (MRight n) = n /= 0
+    noNoOp (In n)     = n /= 0
+    noNoOp (Out n)    = n /= 0
+    noNoOp (Loop ops) = all noNoOp ops

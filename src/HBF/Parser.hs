@@ -32,16 +32,16 @@ garbage = noneOf bfTokens
 simpleOp :: Parser BasicOp
 simpleOp = build <$> oneOf bfSimpleTokens
   where
-    build '>' = MRight
-    build '<' = MLeft
-    build '+' = Inc
-    build '-' = Dec
-    build '.' = Out
-    build ',' = In
+    build '>' = BRight
+    build '<' = BLeft
+    build '+' = BInc
+    build '-' = BDec
+    build '.' = BOut
+    build ',' = BIn
     build _   = error "Unknown character"
 
 loopOp :: Parser BasicOp
-loopOp = Loop . instructions <$> between (char '[') (char ']') program
+loopOp = BLoop . instructions <$> between (char '[') (char ']') program
 
 -- | Parse program stream. Returns an error or the parsed 'Program'
 parseProgram :: Text -> Either ParseError UnoptimizedProgram

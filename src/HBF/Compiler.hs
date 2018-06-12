@@ -64,13 +64,13 @@ optimize CompilerOptions {..} p = foldl (flip ($)) base optimizations
 toIR :: UnoptimizedProgram -> OptimizedProgram
 toIR = fmap convert
   where
-    convert (Loop l) = OLoop $ convert <$> l
-    convert Inc      = IncN 1
-    convert Dec      = IncN (-1)
-    convert MRight   = MRightN 1
-    convert MLeft    = MRightN (-1)
-    convert In       = InN 1
-    convert Out      = OutN 1
+    convert (BLoop l) = Loop $ convert <$> l
+    convert BInc      = Inc 1
+    convert BDec      = Inc (-1)
+    convert BRight    = MRight 1
+    convert BLeft     = MRight (-1)
+    convert BIn       = In 1
+    convert BOut      = Out 1
 
 newtype FusedProgram = Fused
   { unfused :: OptimizedProgram
@@ -85,11 +85,11 @@ instance Semigroup FusedProgram where
       fuse [op1] (op2:more) = join op1 op2 ++ more
       fuse (op1:more) ops2  = op1 : fuse more ops2
       join :: OptimizedOp -> OptimizedOp -> [OptimizedOp]
-      join (IncN a) (IncN b)       = ifNotZero IncN $ a + b
-      join (MRightN a) (MRightN b) = ifNotZero MRightN $ a + b
-      join (InN a) (InN b)         = ifNotZero InN $ a + b
-      join (OutN a) (OutN b)       = ifNotZero OutN $ a + b
-      join a b                     = [a, b]
+      join (Inc a) (Inc b)       = ifNotZero Inc $ a + b
+      join (MRight a) (MRight b) = ifNotZero MRight $ a + b
+      join (In a) (In b)         = ifNotZero In $ a + b
+      join (Out a) (Out b)       = ifNotZero Out $ a + b
+      join a b                   = [a, b]
       ifNotZero f n = [f n | n /= 0]
 
 instance Monoid FusedProgram where
@@ -99,7 +99,7 @@ instance Monoid FusedProgram where
 fusionOpt :: OptimizedProgram -> OptimizedProgram
 fusionOpt = unfused . foldMap (Fused . Program . optimizeIn) . instructions
   where
-    optimizeIn (OLoop as) = [OLoop inner | not (null inner)]
+    optimizeIn (Loop as) = [Loop inner | not (null inner)]
       where
         inner = instructions $ fusionOpt $ Program as
     optimizeIn other = [other]

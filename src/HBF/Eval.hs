@@ -29,21 +29,21 @@ evalOp ::
   -> Int
   -> OptimizedOp
   -> m Int
-evalOp v pointer (IncN n) =
+evalOp v pointer (Inc n) =
   MV.modify v (+ fromIntegral n) pointer >> return pointer
-evalOp _ pointer (MRightN n) = return $ pointer + n
-evalOp v pointer (OutN n) =
+evalOp _ pointer (MRight n) = return $ pointer + n
+evalOp v pointer (Out n) =
   MV.read v pointer >>= replicateM n . putByte >> return pointer
-evalOp v pointer (InN n) =
+evalOp v pointer (In n) =
   input >>= MV.write v pointer . fromMaybe 0 >> return pointer
   where
     input :: m (Maybe Int8)
     input = foldr (flip (>>)) (return Nothing) $ replicate n getByte --fixme return Nothing ugly, we need n > 0
-evalOp v pointer (OLoop ops) = do
+evalOp v pointer (Loop ops) = do
   condition <- MV.read v pointer
   if condition == 0
     then return pointer
-    else foldM (evalOp v) pointer ops >>= flip (evalOp v) (OLoop ops)
+    else foldM (evalOp v) pointer ops >>= flip (evalOp v) (Loop ops)
 
 {-# INLINE evalOp #-}
 tapeSize :: Int

@@ -38,10 +38,10 @@ programGen =
   Program <$>
   Gen.list
     (Range.linear 0 120)
-    (Gen.recursive weights [basic] [Loop . instructions <$> programGen])
+    (Gen.recursive weights [basic] [BLoop . instructions <$> programGen])
   where
     basic :: Gen BasicOp
-    basic = Gen.element [Inc, Dec, MLeft, MRight, In, Out]
+    basic = Gen.element [BInc, BDec, BLeft, BRight, BIn, BOut]
     weights [nonrec] = nonrec
     weights (nonrec:recursive:_) = Gen.frequency [(10, nonrec), (1, recursive)]
     weights [] = error "programGen: unexpected condition"
