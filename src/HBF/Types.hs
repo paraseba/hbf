@@ -36,6 +36,12 @@ newtype Program optimized = Program
   { instructions :: [Op]
   } deriving (Show, Eq, Generic, Binary, NFData)
 
+flattened :: Program o -> [Op]
+flattened p = [atom | op <- instructions p, atom <- atoms op]
+  where
+    atoms (Loop ops) = concatMap atoms ops
+    atoms other      = [other]
+
 instance Semigroup (Program o) where
   Program a <> Program b = Program $ a <> b
 
