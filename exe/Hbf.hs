@@ -1,6 +1,6 @@
 {-# LANGUAGE RecordWildCards #-}
 
-module Main where
+module Hbf where
 
 import           HBF.Compiler       (loadFile)
 import           HBF.Eval           (eval)

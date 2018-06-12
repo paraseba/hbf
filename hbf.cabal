@@ -67,6 +67,7 @@ executable hbfc
   default-language:    Haskell2010
   ghc-options: -O2
                -Wall
+               -main-is Hbfc
                -fwarn-incomplete-record-updates
                -fwarn-monomorphism-restriction
 
@@ -80,6 +81,7 @@ executable hbf
   default-language:    Haskell2010
   ghc-options: -O2
                -Wall
+               -main-is Hbf
                -fwarn-incomplete-record-updates
                -fwarn-monomorphism-restriction
 
@@ -133,5 +135,6 @@ benchmark evalbench
   hs-source-dirs:      bench
   ghc-options: -O2
                -Wall
+               -main-is BenchEval
                -fwarn-incomplete-record-updates
                -fwarn-monomorphism-restriction

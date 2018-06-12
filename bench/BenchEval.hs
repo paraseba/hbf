@@ -1,4 +1,4 @@
-module Main where
+module BenchEval where
 
 import           Control.Monad.Trans.State (execStateT)
 import           Criterion.Main
