@@ -26,7 +26,8 @@ test: ./dist/build/test/test
 	cabal build test
 
 bench: ./dist/build/evalbench/evalbench
-	./dist/build/evalbench/evalbench
+	@mkdir -p public/
+	./dist/build/evalbench/evalbench -o public/bench.html
 
 ./dist/build/evalbench/evalbench: bench/BenchEval.hs src/*
 	cabal build evalbench
@@ -47,6 +48,8 @@ coverage:
 	make clean
 	$(shell) --run 'cabal configure --enable-tests --enable-coverage'
 	cabal test
+	@mkdir -p public/coverage
+	@cp -r dist/hpc/vanilla/html/test public/coverage
 	make clean
 	make configure
 

@@ -17,9 +17,7 @@ test:
 
   script:
     - make coverage
-    - cp -r dist/hpc/vanilla/html/test public/coverage
     - make bench
-    - cp bench.html public'
 
   artifacts:
     paths:
