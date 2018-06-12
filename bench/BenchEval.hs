@@ -8,7 +8,7 @@ import           HBF.Compiler              as C
 import qualified HBF.Eval                  as E
 import           HBF.Types
 
-setupEnv :: IO (OptimizedProgram, OptimizedProgram)
+setupEnv :: IO (Program Optimized, Program Optimized)
 setupEnv = do
   code <- TIO.readFile "tests/factor.bf"
   let (Right (optimized, _)) = C.inMemoryCompile C.defaultCompilerOptions code

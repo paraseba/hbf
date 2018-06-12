@@ -20,7 +20,7 @@ squaresResult = concatMap ((++ "\n") . show) sq
     sq :: [Int]
     sq = takeWhile (<= 10000) $ map (\n -> n * n) [0 ..]
 
-compile :: FilePath -> IO OptimizedProgram
+compile :: FilePath -> IO (Program Optimized)
 compile inpath =
   withSystemTempFile "hbftests.bfc" $ \outpath handle -> do
     hClose handle

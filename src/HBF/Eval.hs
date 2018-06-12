@@ -13,13 +13,14 @@ import qualified Data.Vector.Unboxed         as V
 
 import           HBF.Types
 
-eval :: (MachineIO m, PrimMonad m) => OptimizedProgram -> m Tape
+eval :: (MachineIO m, PrimMonad m) => Program Optimized -> m Tape
 eval = evalWithTape emptyTape
 
-evalWithTape :: (MachineIO m, PrimMonad m) => Tape -> OptimizedProgram -> m Tape
+evalWithTape ::
+     (MachineIO m, PrimMonad m) => Tape -> Program Optimized -> m Tape
 evalWithTape Tape {..} program = do
   mv <- V.thaw memory
-  finalPointer <- foldM (evalOp mv) pointer program
+  finalPointer <- foldM (evalOp mv) pointer (instructions program)
   finalMemory <- V.unsafeFreeze mv
   return Tape {memory = finalMemory, pointer = finalPointer}
 
@@ -27,7 +28,7 @@ evalOp ::
      forall v m. (MV.MVector v Int8, PrimMonad m, MachineIO m)
   => v (PrimState m) Int8
   -> Int
-  -> OptimizedOp
+  -> Op
   -> m Int
 evalOp v pointer (Inc n) =
   MV.modify v (+ fromIntegral n) pointer >> return pointer

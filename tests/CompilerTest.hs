@@ -49,7 +49,7 @@ unit_optimizationsDontChangeResults = do
   where
     exec program = execStateT (E.eval program) (mkMockIOS "25454\n")
 
-fullyFused :: [OptimizedOp] -> Bool
+fullyFused :: [Op] -> Bool
 fullyFused ops = all (uncurry fused) (zip (toList ops) (tail (toList ops)))
   where
     fused (Inc _) (Inc _)       = False
@@ -70,8 +70,8 @@ hprop_fusionDoesntLeaveAnythingToBeFused :: Property
 hprop_fusionDoesntLeaveAnythingToBeFused =
   property $ do
     program <- forAll programGen
-    let optimized = fusionOpt . toIR $ program
-    H.assert $ all noNoOp optimized && fullyFused (instructions optimized)
+    let (Program optimized) = fusionOpt . toIR $ program
+    H.assert $ all noNoOp optimized && fullyFused optimized
   where
     noNoOp (Inc n)    = n /= 0
     noNoOp (MRight n) = n /= 0

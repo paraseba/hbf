@@ -14,10 +14,10 @@ import           Text.Parsec.Text.Lazy (Parser)
 
 import           HBF.Types
 
-program :: Parser UnoptimizedProgram
+program :: Parser (Program Unoptimized)
 program = Program <$> many1 operation
 
-operation :: Parser BasicOp
+operation :: Parser Op
 operation = many garbage *> (simpleOp <|> loopOp) <* many garbage
 
 bfSimpleTokens :: String
@@ -29,20 +29,20 @@ bfTokens = "[]" ++ bfSimpleTokens
 garbage :: Parser Char
 garbage = noneOf bfTokens
 
-simpleOp :: Parser BasicOp
+simpleOp :: Parser Op
 simpleOp = build <$> oneOf bfSimpleTokens
   where
-    build '>' = BRight
-    build '<' = BLeft
-    build '+' = BInc
-    build '-' = BDec
-    build '.' = BOut
-    build ',' = BIn
+    build '>' = MRight 1
+    build '<' = MRight (-1)
+    build '+' = Inc 1
+    build '-' = Inc (-1)
+    build '.' = Out 1
+    build ',' = In 1
     build _   = error "Unknown character"
 
-loopOp :: Parser BasicOp
-loopOp = BLoop . instructions <$> between (char '[') (char ']') program
+loopOp :: Parser Op
+loopOp = Loop . instructions <$> between (char '[') (char ']') program
 
 -- | Parse program stream. Returns an error or the parsed 'Program'
-parseProgram :: Text -> Either ParseError UnoptimizedProgram
+parseProgram :: Text -> Either ParseError (Program Unoptimized)
 parseProgram = runP (program <* eof) () ""

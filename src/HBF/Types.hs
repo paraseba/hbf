@@ -20,38 +20,28 @@ import           Data.Vector.Unboxed            (Vector)
 import           GHC.Generics                   (Generic)
 import           System.IO                      (hFlush, stdout)
 
-data BasicOp
-  = BInc
-  | BDec
-  | BLeft
-  | BRight
-  | BIn
-  | BOut
-  | BLoop [BasicOp]
-  deriving (Show, Eq)
-
-data OptimizedOp
+data Op
   = Inc Int
   | MRight Int
   | In Int
   | Out Int
-  | Loop [OptimizedOp]
+  | Loop [Op]
   deriving (Show, Eq, Generic, Binary, NFData)
 
-newtype Program op = Program
-  { instructions :: [op]
-  } deriving (Show, Eq, Functor, Foldable, Traversable, Generic, Binary, NFData)
+data Optimized
 
-instance Semigroup (Program op) where
+data Unoptimized
+
+newtype Program optimized = Program
+  { instructions :: [Op]
+  } deriving (Show, Eq, Generic, Binary, NFData)
+
+instance Semigroup (Program o) where
   Program a <> Program b = Program $ a <> b
 
-instance Monoid (Program op) where
+instance Monoid (Program o) where
   mappend = (<>)
   mempty = Program mempty
-
-type UnoptimizedProgram = Program BasicOp
-
-type OptimizedProgram = Program OptimizedOp
 
 data Tape = Tape
   { memory  :: Vector Int8
