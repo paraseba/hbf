@@ -1,0 +1,5 @@
+:set -isrc:tests
+:set -j6
+:set -A128m
+
+:load tests/test.hs
