@@ -35,10 +35,12 @@ evalOp _ pointer (MRight n) = return $ pointer + n
 evalOp v pointer (Out n) =
   MV.read v pointer >>= replicateM n . putByte >> return pointer
 evalOp v pointer (In n) =
-  input >>= MV.write v pointer . fromMaybe 0 >> return pointer
+  if n == 0
+    then return pointer
+    else input >>= MV.write v pointer . fromMaybe 0 >> return pointer
   where
     input :: m (Maybe Int8)
-    input = foldr (flip (>>)) (return Nothing) $ replicate n getByte --fixme return Nothing ugly, we need n > 0
+    input = foldr (flip (>>)) (return Nothing) $ replicate n getByte
 evalOp v pointer (Loop ops) = do
   condition <- MV.read v pointer
   if condition == 0
