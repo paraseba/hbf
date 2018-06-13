@@ -13,6 +13,11 @@ let
               hbf = haskell.lib.overrideCabal orig (args: args // { doBenchmark = true; });
 
               withCabal = haskell.lib.overrideCabal hbf (args: args // {testToolDepends = [pkgs.cabal-install pkgs.wget];});
+
+              # dependency issue with either package
+              hedgehog-checkers = haskell.lib.dontCheck haskellPackagesOld.hedgehog-checkers;
+
+
             };
           };
         };

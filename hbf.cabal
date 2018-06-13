@@ -101,6 +101,7 @@ test-suite test
                      , transformers
                      , HUnit
                      , hedgehog
+                     , hedgehog-checkers
                      , tasty
                      , tasty-hedgehog
                      , tasty-hunit

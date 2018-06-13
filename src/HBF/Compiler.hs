@@ -67,7 +67,7 @@ toIR = coerce
 
 newtype FusedProgram = Fused
   { unfused :: Program Optimized
-  }
+  } deriving (Show)
 
 instance Semigroup FusedProgram where
   Fused (Program p1) <> Fused (Program p2) = Fused $ Program $ fuse p1 p2
