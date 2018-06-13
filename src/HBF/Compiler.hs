@@ -104,7 +104,7 @@ clearOpt = Program . fmap clearLoops . instructions
   where
     clearLoops (Loop [Inc (-1)]) = Clear
     clearLoops (Loop ops) = Loop $ instructions $ clearOpt (Program ops)
-    clearLoops other             = other
+    clearLoops other = other
 
 load :: ByteString -> Program Optimized
 load = B.decode

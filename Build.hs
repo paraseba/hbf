@@ -6,6 +6,7 @@
 import           Control.DeepSeq
 import           Data.Binary
 import           Data.Char         (toLower)
+import           Data.Foldable     (for_)
 import           Data.Hashable
 import           Data.List
 import           Data.Maybe        (fromMaybe, mapMaybe)
@@ -131,9 +132,14 @@ main =
       currentStatuses >>= ensureConfigure []
       putNormal "Running ghcid for build"
       cmd_ $ nixrun "ghcid"
+    phony "repl" $ do
+      currentStatuses >>= ensureConfigure [Tests]
+      putNormal "Running ghci for tests"
+      cmd_ $ nixrun "ghci"
     phony "style" $ do
       sources <- getDirectoryFiles "." ["//*.hs", "//*.lhs"]
-      cmd_ "hindent" sources
+      -- hindent needs a single file per run
+      for_ sources $ cmd_ "hindent"
       cmd_ "stylish-haskell" $ "-i" : sources
     phony "confstate" $ do
       let enabled True  = " enabled"
