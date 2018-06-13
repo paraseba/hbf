@@ -13,7 +13,7 @@ style:
 clean:
 	cabal clean
 
-configure: default.nix release.nix
+configure: default.nix release.nix hbf.cabal
 	$(shell) --run 'cabal configure --enable-tests --enable-benchmarks'
 
 build:
