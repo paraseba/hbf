@@ -30,12 +30,18 @@ unit_fusionOptimization = fusionOpt (Program p) @?= Program expected
       , Loop
           [ Inc 1
           , Inc 2
-          , Loop [MRight 1, MRight 2]
+          , Loop [MRight 1, MRight 2, Clear, Clear]
           , Loop [MRight 1, MRight (-1)] -- should eliminate this whole loop
           ]
       ]
     expected =
-      [Inc 1, MRight 2, Inc 1, In 3, Out 7, Loop [Inc 3, Loop [MRight 3]]]
+      [ Inc 1
+      , MRight 2
+      , Inc 1
+      , In 3
+      , Out 7
+      , Loop [Inc 3, Loop [MRight 3, Clear]]
+      ]
 
 unit_optimizationsDontChangeResults :: Assertion
 unit_optimizationsDontChangeResults = do
@@ -57,6 +63,7 @@ fullyFused p = all (uncurry fused) (zip ops (tail ops))
     fused (MRight _) (MRight _) = False
     fused (In _) (In _)         = False
     fused (Out _) (Out _)       = False
+    fused Clear Clear        = False
     fused (Loop inner) _        = fullyFused $ Program inner
     fused _ (Loop inner)        = fullyFused $ Program inner
     fused _ _                   = True
@@ -78,7 +85,28 @@ hprop_fusionDoesntLeaveAnythingToBeFused =
     noNoOp (MRight n) = n /= 0
     noNoOp (In n)     = n /= 0
     noNoOp (Out n)    = n /= 0
+    noNoOp Clear      = True
     noNoOp (Loop _)   = error "noNoOp: unexpected operation"
 
 hprop_FusedProgramHasValidMonoid :: Property
 hprop_FusedProgramHasValidMonoid = property $ HC.monoid programGen
+
+unit_clearOptimization :: Assertion
+unit_clearOptimization = clearOpt (Program p) @?= Program expected
+  where
+    p =
+      [ Inc 2
+      , Inc (-1)
+      , Loop [Inc (-1)]
+      , Loop
+          [ Inc 1
+          , Loop [Inc (-1)]
+          , Loop [Loop [Inc (-1)], MRight 3, Loop [Inc (-1)]]
+          ]
+      ]
+    expected =
+      [ Inc 2
+      , Inc (-1)
+      , Clear
+      , Loop [Inc 1, Clear, Loop [Clear, MRight 3, Clear]]
+      ]

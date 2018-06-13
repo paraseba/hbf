@@ -35,13 +35,24 @@ codeGen = (<>) <$> block <*> block
 
 programGen :: Gen (Program Unoptimized)
 programGen =
-  Program <$>
+  Program . concat <$>
   Gen.list
     (Range.linear 0 120)
-    (Gen.recursive weights [basic] [Loop . instructions <$> programGen])
+    (Gen.recursive weights [basic] [(:[]) . Loop . instructions <$> programGen])
   where
-    basic :: Gen Op
-    basic = Gen.element [Inc 1, Inc (-1), MRight (-1), MRight 1, In 1, Out 1]
+    basic :: Gen [Op]
+    basic =
+      Gen.frequency
+        [ (100, pure  [Inc 1])
+        , (50, pure  [ Inc (-1) ])
+        , (80, pure  [ MRight (-1) ])
+        , (70, pure  [ MRight 1 ])
+        , (5, pure  [ Out 1 ])
+        , (2, pure [ In 1 ])
+        , (1, pure [ Loop [Inc (-1)] ]) --clear loop
+
+        , (10, (\b -> b ++ b) <$> basic) --fusable
+        ]
     weights [nonrec] = nonrec
     weights (nonrec:recursive:_) = Gen.frequency [(10, nonrec), (1, recursive)]
     weights [] = error "programGen: unexpected condition"

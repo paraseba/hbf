@@ -47,6 +47,7 @@ evalOp v pointer (Loop ops) = do
   if condition == 0
     then return pointer
     else foldM (evalOp v) pointer ops >>= flip (evalOp v) (Loop ops)
+evalOp v pointer Clear = MV.write v pointer 0 >> return pointer
 
 {-# INLINE evalOp #-}
 tapeSize :: Int

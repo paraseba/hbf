@@ -56,11 +56,12 @@ optimize :: CompilerOptions -> Program Unoptimized -> Program Optimized
 optimize CompilerOptions {..} p = foldl (flip ($)) base optimizations
   where
     base = toIR p
-    opt condition f program =
+    opt condition f =
       if condition
-        then f program
-        else program
-    optimizations = [opt cOptsFusionOptimization fusionOpt]
+        then f
+        else id
+    optimizations =
+      [opt cOptsClearLoop clearOpt, opt cOptsFusionOptimization fusionOpt]
 
 toIR :: Program Unoptimized -> Program Optimized
 toIR = coerce
@@ -82,6 +83,7 @@ instance Semigroup FusedProgram where
       join (MRight a) (MRight b) = ifNotZero MRight $ a + b
       join (In a) (In b)         = ifNotZero In $ a + b
       join (Out a) (Out b)       = ifNotZero Out $ a + b
+      join Clear Clear           = [Clear]
       join a b                   = [a, b]
       ifNotZero f n = [f n | n /= 0]
 
@@ -97,6 +99,13 @@ fusionOpt = unfused . foldMap (Fused . Program . optimizeIn) . instructions
         inner = instructions $ fusionOpt $ Program as
     optimizeIn other = [other]
 
+clearOpt :: Program Optimized -> Program Optimized
+clearOpt = Program . fmap clearLoops . instructions
+  where
+    clearLoops (Loop [Inc (-1)]) = Clear
+    clearLoops (Loop ops) = Loop $ instructions $ clearOpt (Program ops)
+    clearLoops other             = other
+
 load :: ByteString -> Program Optimized
 load = B.decode
 
@@ -106,6 +115,7 @@ loadFile = B.decodeFile
 data CompilerOptions = CompilerOptions
   { cOptsOut                :: Maybe FilePath
   , cOptsFusionOptimization :: Bool
+  , cOptsClearLoop          :: Bool
   , cOptsVerbose            :: Bool
   , cOptsSource             :: FilePath
   } deriving (Show)
@@ -123,7 +133,12 @@ optionsP =
     False
     (long "disable-fusion-optimization" <>
      help
-       "Disable fusion optimization (turn multiple + or > in a single operation)") <*>
+       "Disable fusion optimization (turn multiple + or > into a single operation)") <*>
+  flag
+    True
+    False
+    (long "disable-clear-loop-optimization" <>
+     help "Disable clear loop optimization (turn [-] into a single operation)") <*>
   switch
     (long "verbose" <> short 'v' <> help "Output more debugging information") <*>
   argument str (metavar "SRC" <> help "Input source code file")
@@ -140,6 +155,7 @@ defaultCompilerOptions =
   CompilerOptions
     { cOptsOut = Nothing
     , cOptsFusionOptimization = True
+    , cOptsClearLoop = True
     , cOptsVerbose = False
     , cOptsSource = ""
     }
@@ -149,6 +165,7 @@ noOptimizationCompilerOptions =
   CompilerOptions
     { cOptsOut = Nothing
     , cOptsFusionOptimization = False
+    , cOptsClearLoop = False
     , cOptsVerbose = False
     , cOptsSource = ""
     }

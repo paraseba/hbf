@@ -26,6 +26,7 @@ data Op
   | In Int
   | Out Int
   | Loop [Op]
+  | Clear
   deriving (Show, Eq, Generic, Binary, NFData)
 
 data Optimized
