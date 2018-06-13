@@ -12,12 +12,11 @@ test:
   before_script:
     - nix-channel --add https://nixos.org/channels/nixpkgs-unstable nixpkgs
     - nix-channel --update
-    - nix-env -i cabal-install cabal2nix wget gnumake
-    - mkdir -p public
+    - nix-env -f '<nixpkgs>' -iA cabal-install cabal2nix wget gnumake haskellPackages.shake
 
   script:
-    - make coverage
-    - make bench
+    - ./build coverage
+    - ./build bench
 
   artifacts:
     paths:
