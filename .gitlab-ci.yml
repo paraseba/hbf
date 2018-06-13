@@ -14,7 +14,7 @@ test:
     - nix-channel --update
 
   script:
-    - nix-shell -p cabal-install -p 'haskellPackages.ghcWithPackages (pkgs: [pkgs.shake])' --run './build coverage && ./build bench'
+    - "nix-shell -p cabal-install -p 'haskellPackages.ghcWithPackages (pkgs: [pkgs.shake])' --run './build coverage && ./build bench'"
 
   artifacts:
     paths:
