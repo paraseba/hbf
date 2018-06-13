@@ -57,6 +57,7 @@ matchConfigureRule s =
 
 configure :: [ConfigureType] -> [ConfigureType] -> Action ()
 configure wanted current = do
+  need ["default.nix", "release.nix"]
   putNormal $ "Configuring for: " ++ show swanted
   if swanted == scurrent
     then putNormal "Nothing to configure"
@@ -123,9 +124,11 @@ main =
           c <- status Coverage
           return $ [Tests | t] ++ [Benchmarks | b] ++ [Coverage | c]
     phony "watchtest" $ do
+      currentStatuses >>= ensureConfigure [Tests]
       putNormal "Running ghcid for tests"
       cmd_ $ nixrun "ghcid -W -T Main.main"
     phony "watchbuild" $ do
+      currentStatuses >>= ensureConfigure []
       putNormal "Running ghcid for build"
       cmd_ $ nixrun "ghcid"
     phony "style" $ do
