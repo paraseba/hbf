@@ -12,11 +12,9 @@ test:
   before_script:
     - nix-channel --add https://nixos.org/channels/nixpkgs-unstable nixpkgs
     - nix-channel --update
-    - nix-env -f '<nixpkgs>' -iA cabal-install haskellPackages.shake
 
   script:
-    - ./build coverage
-    - ./build bench
+    - nix-shell -p cabal-install -p 'haskellPackages.ghcWithPackages (pkgs: [pkgs.shake])' --run './build coverage && ./build bench'
 
   artifacts:
     paths:
