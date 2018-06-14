@@ -1,4 +1,5 @@
 {-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE LambdaCase     #-}
 
 module HBF.Compiler
   ( BFP.ParseError
@@ -18,8 +19,13 @@ import           Options.Applicative
 import           System.Environment   (getArgs)
 import           System.FilePath      ((-<.>))
 
+import Data.Functor.Identity (Identity)
+import    qualified       Text.Parsec as Parsec
+import    Text.Parsec.Pos (initialPos)
+
 import qualified HBF.Parser           as BFP
 import           HBF.Types
+
 
 saveCompilerOutput :: Program Optimized -> FilePath -> IO ()
 saveCompilerOutput = flip B.encodeFile . instructions
@@ -61,7 +67,7 @@ optimize CompilerOptions {..} p = foldl (flip ($)) base optimizations
         then f
         else id
     optimizations =
-      [opt cOptsClearLoop clearOpt, opt cOptsFusionOptimization fusionOpt]
+      [opt cOptsClearLoopOptimization clearOpt, opt cOptsMulOptimization mulOpt, opt cOptsFusionOptimization fusionOpt]
 
 toIR :: Program Unoptimized -> Program Optimized
 toIR = coerce
@@ -99,12 +105,33 @@ fusionOpt = unfused . foldMap (Fused . Program . optimizeIn) . instructions
         inner = instructions $ fusionOpt $ Program as
     optimizeIn other = [other]
 
-clearOpt :: Program Optimized -> Program Optimized
-clearOpt = Program . fmap clearLoops . instructions
+liftLoop :: ([Op] -> Maybe [Op]) -> Program o -> Program o
+liftLoop f = Program . (>>= g) . instructions
   where
-    clearLoops (Loop [Inc (-1)]) = Clear
-    clearLoops (Loop ops) = Loop $ instructions $ clearOpt (Program ops)
-    clearLoops other = other
+    g :: Op -> [Op]
+    g (Loop ops) = fromMaybe ((:[]). Loop . instructions . liftLoop f $ Program ops) $ f ops
+    g other = [other]
+
+clearOpt :: Program Optimized -> Program Optimized
+clearOpt = liftLoop onLoops
+  where
+    onLoops :: [Op] -> Maybe [Op]
+    onLoops [Inc (-1)] = Just [Clear]
+    onLoops _ = Nothing
+
+mulOpt :: Program Optimized -> Program Optimized
+mulOpt = liftLoop onLoops
+  where
+    onLoops :: [Op] -> Maybe [Op]
+    onLoops ops =
+      makeOp <$> eitherToMaybe (Parsec.parse mulP "" ops)
+      where
+        makeOp :: [(MulOffset, MulFactor)] -> [Op]
+        makeOp = (++ [Clear]). snd . foldl it (0, [])
+          where
+            it (totalOff, res) (off,fact) =
+              (totalOff + off, res ++ [Mul (off + totalOff) fact]) -- todo very inefficient  foldr
+
 
 load :: ByteString -> Program Optimized
 load = B.decode
@@ -115,7 +142,8 @@ loadFile = B.decodeFile
 data CompilerOptions = CompilerOptions
   { cOptsOut                :: Maybe FilePath
   , cOptsFusionOptimization :: Bool
-  , cOptsClearLoop          :: Bool
+  , cOptsClearLoopOptimization          :: Bool
+  , cOptsMulOptimization          :: Bool
   , cOptsVerbose            :: Bool
   , cOptsSource             :: FilePath
   } deriving (Show)
@@ -139,6 +167,11 @@ optionsP =
     False
     (long "disable-clear-loop-optimization" <>
      help "Disable clear loop optimization (turn [-] into a single operation)") <*>
+  flag
+    True
+    False
+    (long "disable-mul-loop-optimization" <>
+     help "Disable mul loop optimization (turn [->++>+++<<] into [Mul(1, 2) Mul(2,3)] Clear operations)") <*>
   switch
     (long "verbose" <> short 'v' <> help "Output more debugging information") <*>
   argument str (metavar "SRC" <> help "Input source code file")
@@ -155,7 +188,8 @@ defaultCompilerOptions =
   CompilerOptions
     { cOptsOut = Nothing
     , cOptsFusionOptimization = True
-    , cOptsClearLoop = True
+    , cOptsClearLoopOptimization = True
+    , cOptsMulOptimization = True
     , cOptsVerbose = False
     , cOptsSource = ""
     }
@@ -165,7 +199,8 @@ noOptimizationCompilerOptions =
   CompilerOptions
     { cOptsOut = Nothing
     , cOptsFusionOptimization = False
-    , cOptsClearLoop = False
+    , cOptsClearLoopOptimization = False
+    , cOptsMulOptimization = False
     , cOptsVerbose = False
     , cOptsSource = ""
     }
@@ -178,3 +213,69 @@ unsafeParse = handleParseResult . parsePure
 
 parse :: IO CompilerOptions
 parse = getArgs >>= unsafeParse
+
+----------------------- implementation details ----------------------
+
+type ProgramParser  a = Parsec.ParsecT [Op] () Identity a
+
+satisfy' :: Show t => (t -> Bool) -> Parsec.ParsecT [t] () Identity t
+satisfy' predicate
+   = Parsec.token showTok posFromTok testTok
+   where
+     showTok t     = show t
+     posFromTok _  = initialPos ""
+     testTok t     = if predicate t then Just t else Nothing
+
+mrightP  :: ProgramParser Int
+mrightP =  satisfy' isRight <&> \case
+  MRight n -> n
+  _ -> undefined
+
+mleftP :: ProgramParser Int
+mleftP =  satisfy' isLeft <&> \case
+  MRight n -> (negate n)
+  _ -> undefined
+
+plusP :: ProgramParser Int
+plusP = satisfy' isPlus <&> \case
+  Inc n -> n
+  _ -> undefined
+
+minusP :: ProgramParser Int
+minusP = satisfy' isMinus <&> \case
+  Inc n -> (negate n)
+  _ -> undefined
+
+
+summedP :: ProgramParser  Int -> ProgramParser Int
+summedP = fmap sum . Parsec.many1
+
+isRight :: Op -> Bool
+isRight (MRight n) | n > 0 = True
+isRight _ = False
+
+isLeft :: Op -> Bool
+isLeft (MRight n) | n < 0 = True
+isLeft _ = False
+
+isPlus :: Op -> Bool
+isPlus (Inc n) | n > 0 = True
+isPlus _ = False
+
+isMinus :: Op -> Bool
+isMinus (Inc n) | n < 0 = True
+isMinus _ = False
+
+
+mulP :: ProgramParser [(MulOffset, MulFactor)]
+mulP = do
+  _ <- minusP
+  copies <- Parsec.many1 shiftFactorP
+  let totalShift = sum $ map fst copies
+  back <- summedP mleftP
+  Parsec.eof
+  if back == totalShift
+  then return $ coerce copies
+  else Parsec.unexpected "number of left returns to close the loop"
+  where
+    shiftFactorP = (,) <$> summedP mrightP <*> summedP plusP

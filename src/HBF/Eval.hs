@@ -48,8 +48,12 @@ evalOp v pointer (Loop ops) = do
     then return pointer
     else foldM (evalOp v) pointer ops >>= flip (evalOp v) (Loop ops)
 evalOp v pointer Clear = MV.write v pointer 0 >> return pointer
+evalOp v pointer (Mul (MulOffset offset) (MulFactor factor)) = do
+  value <- MV.read v pointer
+  MV.modify v (\old -> old + value * fromIntegral factor) (pointer + offset)
+  return pointer
 
-{-# INLINE evalOp #-}
+
 tapeSize :: Int
 tapeSize = 30000
 

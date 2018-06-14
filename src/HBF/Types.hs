@@ -1,7 +1,7 @@
+{-# LANGUAGE DerivingStrategies    #-}
 {-# LANGUAGE DeriveAnyClass    #-}
-{-# LANGUAGE DeriveFunctor     #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving    #-}
 {-# LANGUAGE DeriveGeneric     #-}
-{-# LANGUAGE DeriveTraversable #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE InstanceSigs      #-}
 {-# LANGUAGE RecordWildCards   #-}
@@ -27,7 +27,19 @@ data Op
   | Out Int
   | Loop [Op]
   | Clear
+  | Mul MulOffset MulFactor
   deriving (Show, Eq, Generic, Binary, NFData)
+
+
+newtype MulOffset = MulOffset Int
+  deriving Generic
+  deriving newtype (Show, Eq, Num)
+  deriving anyclass (Binary, NFData)
+
+newtype MulFactor = MulFactor Int
+  deriving Generic
+  deriving newtype (Show, Eq, Num)
+  deriving anyclass (Binary, NFData)
 
 data Optimized
 
@@ -35,7 +47,10 @@ data Unoptimized
 
 newtype Program optimized = Program
   { instructions :: [Op]
-  } deriving (Show, Eq, Generic, Binary, NFData)
+  }
+  deriving Generic
+  deriving newtype (Show, Eq)
+  deriving anyclass (Binary, NFData)
 
 flattened :: Program o -> [Op]
 flattened p = [atom | op <- instructions p, atom <- atoms op]
@@ -95,3 +110,10 @@ instance Monad m => MachineIO (StateT MockIO m) where
     maybe (pure Nothing) (update st) $ uncons machineIn
     where
       update st (b, bs) = put st {machineIn = bs} >> return (Just b)
+
+(<&>) :: Functor f => f a -> (a -> b) -> f b
+(<&>) = flip (<$>)
+
+eitherToMaybe :: Either a b -> Maybe b
+eitherToMaybe (Right b) = Just b
+eitherToMaybe (Left _) = Nothing

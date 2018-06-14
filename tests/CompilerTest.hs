@@ -86,6 +86,7 @@ hprop_fusionDoesntLeaveAnythingToBeFused =
     noNoOp (In n)     = n /= 0
     noNoOp (Out n)    = n /= 0
     noNoOp Clear      = True
+    noNoOp (Mul _ _) = True
     noNoOp (Loop _)   = error "noNoOp: unexpected operation"
 
 hprop_FusedProgramHasValidMonoid :: Property
@@ -109,4 +110,22 @@ unit_clearOptimization = clearOpt (Program p) @?= Program expected
       , Inc (-1)
       , Clear
       , Loop [Inc 1, Clear, Loop [Clear, MRight 3, Clear]]
+      ]
+
+unit_mulOptimization :: Assertion
+unit_mulOptimization = mulOpt (Program p) @?= Program expected
+  where
+    p =
+      [ Inc 2
+      , Inc (-1)
+      , makeMul [(1,2)]
+      , Loop [Inc (-1), makeMul [(2, 4), (4,5)], Inc 1]
+      , Loop [Inc (-1), MRight 1, Inc 1, MRight (-1), {- this extra part breaks the multiplication loop -} Inc 1] -- this tests missing eof
+      ]
+    expected =
+      [ Inc 2
+      , Inc (-1)
+      , Mul 1 2, Clear
+      , Loop [Inc (-1), Mul 2 4, Mul 6 5, Clear, Inc 1]
+      , Loop [Inc (-1), MRight 1, Inc 1, MRight (-1), Inc 1]
       ]
