@@ -11,8 +11,7 @@ import qualified Data.Binary          as B
 import           Data.ByteString.Lazy (ByteString)
 import           Data.Coerce          (coerce)
 import           Data.Maybe           (fromMaybe)
-import           Data.Semigroup       ((<>))
-import           Data.Semigroup       (Semigroup (..))
+import           Data.Semigroup       ((<>), Semigroup(..))
 import           Data.Text.Lazy       (Text)
 import qualified Data.Text.Lazy.IO    as TIO
 import           Options.Applicative
@@ -222,7 +221,7 @@ satisfy' :: Show t => (t -> Bool) -> Parsec.ParsecT [t] () Identity t
 satisfy' predicate
    = Parsec.token showTok posFromTok testTok
    where
-     showTok t     = show t
+     showTok t       = show t
      posFromTok _  = initialPos ""
      testTok t     = if predicate t then Just t else Nothing
 

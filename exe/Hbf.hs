@@ -7,7 +7,7 @@ import           HBF.Eval           (eval)
 import           System.Environment (getArgs)
 import           System.IO          (hFlush, stdout)
 
-data VMArgs = VMArgs
+newtype VMArgs = VMArgs
   { vmargsIR :: FilePath
   }
 
