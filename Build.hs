@@ -1,18 +1,17 @@
 {-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE DeriveGeneric  #-}
-{-# LANGUAGE TupleSections  #-}
-{-# LANGUAGE TypeFamilies   #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE TypeFamilies #-}
 
-import           Control.DeepSeq
-import           Data.Binary
-import           Data.Char         (toLower)
-import           Data.Foldable     (for_)
-import           Data.Hashable
-import           Data.List
-import           Data.Maybe        (fromMaybe, mapMaybe)
-import           Data.Typeable
-import           Development.Shake
-import           GHC.Generics
+import Control.DeepSeq
+import Data.Binary
+import Data.Char (toLower)
+import Data.Foldable (for_)
+import Data.Hashable
+import Data.List
+import Data.Maybe (fromMaybe, mapMaybe)
+import Data.Typeable
+import Development.Shake
+import GHC.Generics
 
 data ConfigureType
   = Base
@@ -39,7 +38,7 @@ charToConfigureStatus c =
     't' -> Just Tests
     'b' -> Just Benchmarks
     'c' -> Just Coverage
-    _   -> Nothing
+    _ -> Nothing
 
 defaultConfigure :: [ConfigureType]
 defaultConfigure = [Base]
@@ -70,12 +69,12 @@ configure wanted current = do
     scurrent = sort current
     configureFlags :: [ConfigureType] -> [String]
     configureFlags = map confName
-    confName Tests      = "--enable-tests"
+    confName Tests = "--enable-tests"
     confName Benchmarks = "--enable-benchmarks"
-    confName Coverage   = "--enable-coverage"
+    confName Coverage = "--enable-coverage"
 
 ensureConfigure :: [ConfigureType] -> [ConfigureType] -> Action ()
-ensureConfigure wanted current = do
+ensureConfigure wanted current =
   if null confneeded
     then putNormal "Nothing to configure"
     else configure (current ++ confneeded) current
@@ -91,6 +90,12 @@ nixrun c = nix ["--run", c]
 cabalFlagsFile :: FilePath
 cabalFlagsFile = "./dist/cabal-config-flags"
 
+sourceFiles = getDirectoryFiles "" ["src//*"]
+
+testFiles = getDirectoryFiles "" ["tests//*"]
+
+benchFiles = getDirectoryFiles "" ["bench//*"]
+
 main :: IO ()
 main =
   shakeArgs shakeOptions {shakeFiles = "_build"} $
@@ -98,6 +103,7 @@ main =
    do
     getConfigure <-
       addOracle $ \ConfigureMapQ {} -> do
+        need ["hbf.cabal", "release.nix"]
         configured <- doesFileExist cabalFlagsFile
         if configured
           then do
@@ -137,12 +143,12 @@ main =
       putNormal "Running ghci for tests"
       cmd_ $ nixrun "ghci"
     phony "style" $ do
-      sources <- getDirectoryFiles "." ["//*.hs", "//*.lhs"]
+      sources <- getDirectoryFiles "" ["//*.hs", "//*.lhs"]
       -- hindent needs a single file per run
       for_ sources $ cmd_ "hindent"
       cmd_ "stylish-haskell" $ "-i" : sources
     phony "confstate" $ do
-      let enabled True  = " enabled"
+      let enabled True = " enabled"
           enabled False = " disabled"
           write t = status t >>= putNormal . (show t ++) . enabled
       write Tests
@@ -167,19 +173,20 @@ main =
       need [exetest]
       cmd_ exetest
     exetest %> \_ -> do
+      sequence [sourceFiles, testFiles] >>= need . concat
       current <- currentStatuses
       ensureConfigure [Tests] current
-      cmd_ "cabal" "build" "test"
+      cmd_ "cabal" "-j" "build" "test"
     phony "bench" $ do
-      need ["public/.dummy"]
-      need [exebench]
+      need ["public/.dummy", exebench]
       cmd_ exebench ["-o", "public/bench.html"]
     exebench %> \_ -> do
+      sequence [sourceFiles, testFiles] >>= need . concat
       current <- currentStatuses
       ensureConfigure [Benchmarks] current
       cmd_ "cabal" "build" "bench:evalbench"
     phony "coverage" $ do
-      need ["clean", "public/.dummy"]
+      need ["clean", "public/.dummy", exetest]
       oldstatus <- currentStatuses
       configure [Coverage, Tests] []
       cmd_ "cabal" "test"
@@ -187,15 +194,18 @@ main =
       need ["clean"]
       configure oldstatus [Coverage, Tests]
     phony "buildall" $ do
+      sequence [sourceFiles, testFiles, benchFiles] >>= need . concat
       current <- currentStatuses
       ensureConfigure [Tests, Benchmarks] current
       cmd_ "cabal" "build"
     phony "build" $ need ["buildall"]
     execompiler %> \_ -> do
+      need <$> sourceFiles
       current <- currentStatuses
       ensureConfigure [] current
       cmd_ "cabal" "build" "exe:hbfc"
     exevm %> \_ -> do
+      need <$> sourceFiles
       current <- currentStatuses
       ensureConfigure [] current
       cmd_ "cabal" "build" "exe:hbf"
