@@ -99,6 +99,7 @@ test-suite test
                      , text
                      , temporary
                      , transformers
+                     , vector
                      , HUnit
                      , hedgehog
                      , hedgehog-checkers

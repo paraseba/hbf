@@ -66,7 +66,10 @@ optimize CompilerOptions {..} p = foldl (flip ($)) base optimizations
         then f
         else id
     optimizations =
-      [opt cOptsClearLoopOptimization clearOpt, opt cOptsMulOptimization mulOpt, opt cOptsFusionOptimization fusionOpt]
+      [ opt cOptsClearLoopOptimization clearOpt
+      , opt cOptsMulOptimization mulOpt
+      , opt cOptsScanOptimization scanOpt
+      , opt cOptsFusionOptimization fusionOpt]
 
 toIR :: Program Unoptimized -> Program Optimized
 toIR = coerce
@@ -89,6 +92,8 @@ instance Semigroup FusedProgram where
       join (In a) (In b)         = ifNotZero In $ a + b
       join (Out a) (Out b)       = ifNotZero Out $ a + b
       join Clear Clear           = [Clear]
+      join ScanR ScanR           = [ScanR]
+      join ScanL ScanL           = [ScanL]
       join a b                   = [a, b]
       ifNotZero f n = [f n | n /= 0]
 
@@ -131,6 +136,13 @@ mulOpt = liftLoop onLoops
             it (totalOff, res) (off,fact) =
               (totalOff + off, res ++ [Mul (off + totalOff) fact]) -- todo very inefficient  foldr
 
+scanOpt :: Program Optimized -> Program Optimized
+scanOpt = liftLoop onLoops
+  where
+    onLoops :: [Op] -> Maybe [Op]
+    onLoops [MRight 1] = Just [ ScanR ]
+    onLoops [MRight (-1)] = Just [ ScanL ]
+    onLoops _ = Nothing
 
 load :: ByteString -> Program Optimized
 load = B.decode
@@ -143,6 +155,7 @@ data CompilerOptions = CompilerOptions
   , cOptsFusionOptimization :: Bool
   , cOptsClearLoopOptimization          :: Bool
   , cOptsMulOptimization          :: Bool
+  , cOptsScanOptimization          :: Bool
   , cOptsVerbose            :: Bool
   , cOptsSource             :: FilePath
   } deriving (Show)
@@ -171,6 +184,11 @@ optionsP =
     False
     (long "disable-mul-loop-optimization" <>
      help "Disable mul loop optimization (turn [->++>+++<<] into [Mul(1, 2) Mul(2,3)] Clear operations)") <*>
+  flag
+    True
+    False
+    (long "disable-scan-loop-optimization" <>
+     help "Disable scan loop optimization (turn [>] into ScanR operation)") <*>
   switch
     (long "verbose" <> short 'v' <> help "Output more debugging information") <*>
   argument str (metavar "SRC" <> help "Input source code file")
@@ -189,6 +207,7 @@ defaultCompilerOptions =
     , cOptsFusionOptimization = True
     , cOptsClearLoopOptimization = True
     , cOptsMulOptimization = True
+    , cOptsScanOptimization = True
     , cOptsVerbose = False
     , cOptsSource = ""
     }
@@ -200,6 +219,7 @@ noOptimizationCompilerOptions =
     , cOptsFusionOptimization = False
     , cOptsClearLoopOptimization = False
     , cOptsMulOptimization = False
+    , cOptsScanOptimization = False
     , cOptsVerbose = False
     , cOptsSource = ""
     }

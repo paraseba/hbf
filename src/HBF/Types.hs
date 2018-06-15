@@ -16,7 +16,6 @@ import           Data.Char                      (chr, ord)
 import           Data.Int
 import           Data.List                      (uncons)
 import           Data.Semigroup                 (Semigroup (..))
-import           Data.Vector.Unboxed            (Vector)
 import           GHC.Generics                   (Generic)
 import           System.IO                      (hFlush, stdout)
 
@@ -28,6 +27,8 @@ data Op
   | Loop [Op]
   | Clear
   | Mul MulOffset MulFactor
+  | ScanR
+  | ScanL
   deriving (Show, Eq, Generic, Binary, NFData)
 
 
@@ -65,10 +66,10 @@ instance Monoid (Program o) where
   mappend = (<>)
   mempty = Program mempty
 
-data Tape = Tape
-  { memory  :: Vector Int8
+data Tape v = Tape
+  { memory  :: v
   , pointer :: Int
-  } deriving (Show)
+  } deriving (Show, Eq)
 
 class MachineIO m where
   putByte :: Int8 -> m ()
@@ -81,6 +82,8 @@ instance MachineIO IO where
       safeGetChar = fmap Just getChar `catch` recover
       recover :: IOError -> IO (Maybe Char)
       recover _ = return Nothing
+
+-- fixme move to test helper
 
 data MockIO = MockIO
   { machineIn  :: [Int8]

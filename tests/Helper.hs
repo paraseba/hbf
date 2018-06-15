@@ -8,6 +8,8 @@ import           Hedgehog       (Gen)
 import qualified Hedgehog.Gen   as Gen
 import qualified Hedgehog.Range as Range
 import Data.Coerce (coerce)
+import           Data.Int (Int8)
+import qualified Data.Vector.Unboxed         as Vector
 
 import           HBF.Parser
 import           HBF.Types
@@ -51,6 +53,8 @@ programGen =
         , (5, pure [Out 1])
         , (2, pure [In 1])
         , (10, (\b -> b ++ b) <$> basic) --fusable
+        , (3, pure [Loop [MRight (-1)]] ) --scanL
+        , (2, pure [Loop [MRight 1]]) --scanR
         , (1, pure [Loop [Inc (-1)]]) --clear loop
         , (1, pure [Inc (-1), MRight 1, Inc 1, Inc 1, MRight 2, Inc (-1), MRight (-1), MRight (-1)]) --mul loop --fixme use makeMul
         ]
@@ -65,3 +69,6 @@ makeMul muls =
     mkMul (off, fact) = replicate off (MRight 1) ++ replicate fact (Inc 1)
     muls' :: [(Int, Int)]
     muls' = coerce muls
+
+listTape :: Tape (Vector.Vector Int8) -> Tape [Int8]
+listTape t = Tape {pointer = pointer t, memory = Vector.toList (memory t)}

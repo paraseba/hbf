@@ -17,7 +17,7 @@ mkDerivation {
   executableHaskellDepends = [ base ];
   testHaskellDepends = [
     base hedgehog hedgehog-checkers HUnit tasty tasty-discover
-    tasty-hedgehog tasty-hunit temporary text transformers
+    tasty-hedgehog tasty-hunit temporary text transformers vector
   ];
   benchmarkHaskellDepends = [ base criterion text transformers ];
   license = stdenv.lib.licenses.gpl3;
