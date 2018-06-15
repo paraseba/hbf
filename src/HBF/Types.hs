@@ -26,11 +26,11 @@ data Op
   | Out Int
   | Loop [Op]
   | Clear
-  | Mul MulOffset MulFactor
+  | Mul MulOffset
+        MulFactor
   | ScanR
   | ScanL
   deriving (Show, Eq, Generic, Binary, NFData)
-
 
 newtype MulOffset = MulOffset Int
   deriving Generic
@@ -119,4 +119,4 @@ instance Monad m => MachineIO (StateT MockIO m) where
 
 eitherToMaybe :: Either a b -> Maybe b
 eitherToMaybe (Right b) = Just b
-eitherToMaybe (Left _) = Nothing
+eitherToMaybe (Left _)  = Nothing

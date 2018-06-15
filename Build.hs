@@ -1,17 +1,17 @@
 {-# LANGUAGE DeriveAnyClass #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE DeriveGeneric  #-}
+{-# LANGUAGE TypeFamilies   #-}
 
-import Control.DeepSeq
-import Data.Binary
-import Data.Char (toLower)
-import Data.Foldable (for_)
-import Data.Hashable
-import Data.List
-import Data.Maybe (fromMaybe, mapMaybe)
-import Data.Typeable
-import Development.Shake
-import GHC.Generics
+import           Control.DeepSeq
+import           Data.Binary
+import           Data.Char         (toLower)
+import           Data.Foldable     (for_)
+import           Data.Hashable
+import           Data.List
+import           Data.Maybe        (fromMaybe, mapMaybe)
+import           Data.Typeable
+import           Development.Shake
+import           GHC.Generics
 
 data ConfigureType
   = Base
@@ -38,7 +38,7 @@ charToConfigureStatus c =
     't' -> Just Tests
     'b' -> Just Benchmarks
     'c' -> Just Coverage
-    _ -> Nothing
+    _   -> Nothing
 
 defaultConfigure :: [ConfigureType]
 defaultConfigure = [Base]
@@ -69,10 +69,10 @@ configure wanted current = do
     scurrent = sort current
     configureFlags :: [ConfigureType] -> [String]
     configureFlags = map confName
-    confName Tests = "--enable-tests"
+    confName Tests      = "--enable-tests"
     confName Benchmarks = "--enable-benchmarks"
-    confName Coverage = "--enable-coverage"
-    confName Base = ""
+    confName Coverage   = "--enable-coverage"
+    confName Base       = ""
 
 ensureConfigure :: [ConfigureType] -> [ConfigureType] -> Action ()
 ensureConfigure wanted current =
@@ -118,16 +118,13 @@ main =
               , (Coverage, "--enable-coverage" `isInfixOf` flags)
               ]
           else return []
-
     getConfigureStatus <-
       addOracle $ \(ConfigureStatusQ ctype) ->
         fromMaybe False . lookup ctype <$> getConfigure (ConfigureMapQ ())
-
     "default.nix" %> \out -> do
       need ["hbf.cabal"]
       Stdout stdout <- cmd "cabal2nix ."
       writeFileChanged out stdout
-
     phony "clean" $ do
       putNormal "Cabal cleaning"
       cmd_ "cabal clean"
@@ -155,7 +152,7 @@ main =
       for_ sources $ cmd_ "hindent"
       cmd_ "stylish-haskell" $ "-i" : sources
     phony "confstate" $ do
-      let enabled True = " enabled"
+      let enabled True  = " enabled"
           enabled False = " disabled"
           write t = status t >>= putNormal . (show t ++) . enabled
       write Tests

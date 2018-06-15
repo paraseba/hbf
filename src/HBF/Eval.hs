@@ -4,14 +4,14 @@
 
 module HBF.Eval where
 
-import           Control.Monad               (foldM, replicateM)
-import           Control.Monad.Primitive     (PrimMonad, PrimState)
+import           Control.Monad                     (foldM, replicateM)
+import           Control.Monad.Primitive           (PrimMonad, PrimState)
 import           Data.Int
-import           Data.Maybe                  (fromMaybe, fromJust)
-import qualified Data.Vector.Generic.Mutable as MV
-import qualified Data.Vector.Generic         as GV
-import qualified Data.Vector.Unboxed         as V
+import           Data.Maybe                        (fromJust, fromMaybe)
 import qualified Data.Vector.Fusion.Stream.Monadic as VStream
+import qualified Data.Vector.Generic               as GV
+import qualified Data.Vector.Generic.Mutable       as MV
+import qualified Data.Vector.Unboxed               as V
 
 import           HBF.Types
 
@@ -21,7 +21,10 @@ eval :: (MachineIO m, PrimMonad m) => Program Optimized -> m TapeType
 eval = evalWithTape emptyTape
 
 evalWithTape ::
-  (MachineIO m, PrimMonad m, GV.Vector v Int8) => Tape (v Int8) -> Program Optimized -> m (Tape (v Int8))
+     (MachineIO m, PrimMonad m, GV.Vector v Int8)
+  => Tape (v Int8)
+  -> Program Optimized
+  -> m (Tape (v Int8))
 evalWithTape Tape {..} program = do
   mv <- GV.thaw memory
   finalPointer <- foldM (evalOp mv) pointer (instructions program)
@@ -57,16 +60,15 @@ evalOp v pointer (Mul (MulOffset offset) (MulFactor factor)) = do
   MV.modify v (\old -> old + value * fromIntegral factor) (pointer + offset)
   return pointer
 evalOp v pointer ScanR = do
-   (pointer+) . fromJust <$> VStream.findIndex (==0)  (MV.mstream slice)   -- todo error handling
+  (pointer +) . fromJust <$> VStream.findIndex (== 0) (MV.mstream slice) -- todo error handling
   where
     slice :: v (PrimState m) Int8
     slice = MV.slice pointer (MV.length v - pointer) v
 evalOp v pointer ScanL = do
-   (pointer -) . fromJust <$> VStream.findIndex (==0)  (MV.mstreamR slice)   -- todo error handling
+  (pointer -) . fromJust <$> VStream.findIndex (== 0) (MV.mstreamR slice) -- todo error handling
   where
     slice :: v (PrimState m) Int8
     slice = MV.slice 0 (pointer + 1) v
-
 
 tapeSize :: Int
 tapeSize = 30000

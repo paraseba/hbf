@@ -53,10 +53,20 @@ programGen =
         , (5, pure [Out 1])
         , (2, pure [In 1])
         , (10, (\b -> b ++ b) <$> basic) --fusable
-        , (3, pure [Loop [MRight (-1)]] ) --scanL
+        , (3, pure [Loop [MRight (-1)]]) --scanL
         , (2, pure [Loop [MRight 1]]) --scanR
         , (1, pure [Loop [Inc (-1)]]) --clear loop
-        , (1, pure [Inc (-1), MRight 1, Inc 1, Inc 1, MRight 2, Inc (-1), MRight (-1), MRight (-1)]) --mul loop --fixme use makeMul
+        , ( 1
+          , pure
+              [ Inc (-1)
+              , MRight 1
+              , Inc 1
+              , Inc 1
+              , MRight 2
+              , Inc (-1)
+              , MRight (-1)
+              , MRight (-1)
+              ]) --mul loop --fixme use makeMul
         ]
     weights [nonrec] = nonrec
     weights (nonrec:recursive:_) = Gen.frequency [(10, nonrec), (1, recursive)]
@@ -64,7 +74,9 @@ programGen =
 
 makeMul :: [(MulOffset, MulFactor)] -> Op
 makeMul muls =
-  Loop $ (Inc (-1) : concatMap mkMul muls') ++ replicate (sum $ map fst muls') (MRight (-1))
+  Loop $
+  (Inc (-1) : concatMap mkMul muls') ++
+  replicate (sum $ map fst muls') (MRight (-1))
   where
     mkMul (off, fact) = replicate off (MRight 1) ++ replicate fact (Inc 1)
     muls' :: [(Int, Int)]

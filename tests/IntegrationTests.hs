@@ -10,6 +10,7 @@ import           Test.HUnit
 import qualified HBF.Compiler              as C
 import qualified HBF.Eval                  as E
 import           HBF.Types
+import           Helper
 
 squaresPath :: FilePath
 squaresPath = "tests/squares.bf"

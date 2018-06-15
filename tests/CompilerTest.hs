@@ -32,7 +32,10 @@ unit_fusionOptimization = fusionOpt (Program p) @?= Program expected
           , Inc 2
           , Loop [MRight 1, MRight 2, Clear, Clear]
           , Loop [MRight 1, MRight (-1)] -- should eliminate this whole loop
-          , ScanR, ScanR, ScanL, ScanL
+          , ScanR
+          , ScanR
+          , ScanL
+          , ScanL
           ]
       ]
     expected =
@@ -41,8 +44,7 @@ unit_fusionOptimization = fusionOpt (Program p) @?= Program expected
       , Inc 1
       , In 3
       , Out 7
-      , Loop [Inc 3, Loop [MRight 3, Clear],
-             ScanR, ScanL]
+      , Loop [Inc 3, Loop [MRight 3, Clear], ScanR, ScanL]
       ]
 
 unit_optimizationsDontChangeResults :: Assertion
@@ -122,18 +124,19 @@ unit_mulOptimization = mulOpt (Program p) @?= Program expected
     p =
       [ Inc 2
       , Inc (-1)
-      , makeMul [(1,2)]
-      , Loop [Inc (-1), makeMul [(2, 4), (4,5)], Inc 1]
-      , Loop [Inc (-1), MRight 1, Inc 1, MRight (-1), {- this extra part breaks the multiplication loop -} Inc 1] -- this tests missing eof
+      , makeMul [(1, 2)]
+      , Loop [Inc (-1), makeMul [(2, 4), (4, 5)], Inc 1]
+      , Loop [Inc (-1), MRight 1, Inc 1, MRight (-1), Inc 1] {- this extra part breaks the multiplication loop -}
+         -- this tests missing eof
       ]
     expected =
       [ Inc 2
       , Inc (-1)
-      , Mul 1 2, Clear
+      , Mul 1 2
+      , Clear
       , Loop [Inc (-1), Mul 2 4, Mul 6 5, Clear, Inc 1]
       , Loop [Inc (-1), MRight 1, Inc 1, MRight (-1), Inc 1]
       ]
-
 
 unit_scanOptimization :: Assertion
 unit_scanOptimization = scanOpt (Program p) @?= Program expected
@@ -145,8 +148,4 @@ unit_scanOptimization = scanOpt (Program p) @?= Program expected
       , Loop [Inc (-1), Loop [MRight 1], Loop [MRight 2], Inc 1]
       ]
     expected =
-      [ Inc 2
-      , Inc (-1)
-      , ScanL
-      , Loop [Inc (-1), ScanR, Loop [MRight 2], Inc 1]
-      ]
+      [Inc 2, Inc (-1), ScanL, Loop [Inc (-1), ScanR, Loop [MRight 2], Inc 1]]
