@@ -59,12 +59,12 @@ evalOp v pointer (Mul (MulOffset offset) (MulFactor factor)) = do
   value <- MV.read v pointer
   MV.modify v (\old -> old + value * fromIntegral factor) (pointer + offset)
   return pointer
-evalOp v pointer ScanR = do
+evalOp v pointer ScanR =
   (pointer +) . fromJust <$> VStream.findIndex (== 0) (MV.mstream slice) -- todo error handling
   where
     slice :: v (PrimState m) Int8
     slice = MV.slice pointer (MV.length v - pointer) v
-evalOp v pointer ScanL = do
+evalOp v pointer ScanL =
   (pointer -) . fromJust <$> VStream.findIndex (== 0) (MV.mstreamR slice) -- todo error handling
   where
     slice :: v (PrimState m) Int8
