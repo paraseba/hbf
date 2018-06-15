@@ -148,9 +148,10 @@ main =
       cmd_ $ nixrun "ghci"
     phony "style" $ do
       sources <- getDirectoryFiles "" ["//*.hs", "//*.lhs"]
+      let sources' = sources \\ ["src/HBF/Types.hs"] -- hindent breaks on Types.hs
       -- hindent needs a single file per run
-      for_ sources $ cmd_ "hindent"
-      cmd_ "stylish-haskell" $ "-i" : sources
+      for_ sources' $ cmd_ "hindent"
+      cmd_ "stylish-haskell" $ "-i" : sources'
     phony "confstate" $ do
       let enabled True  = " enabled"
           enabled False = " disabled"

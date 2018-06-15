@@ -1,10 +1,10 @@
-{-# LANGUAGE DerivingStrategies    #-}
-{-# LANGUAGE DeriveAnyClass    #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving    #-}
-{-# LANGUAGE DeriveGeneric     #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE InstanceSigs      #-}
-{-# LANGUAGE RecordWildCards   #-}
+{-# LANGUAGE DeriveAnyClass             #-}
+{-# LANGUAGE DeriveGeneric              #-}
+{-# LANGUAGE DerivingStrategies         #-}
+{-# LANGUAGE FlexibleInstances          #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE InstanceSigs               #-}
+{-# LANGUAGE RecordWildCards            #-}
 
 module HBF.Types where
 

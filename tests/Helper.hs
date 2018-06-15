@@ -2,14 +2,14 @@
 
 module Helper where
 
-import           Data.Semigroup ((<>))
-import           Data.Text.Lazy (Text, pack)
-import           Hedgehog       (Gen)
-import qualified Hedgehog.Gen   as Gen
-import qualified Hedgehog.Range as Range
-import Data.Coerce (coerce)
-import           Data.Int (Int8)
-import qualified Data.Vector.Unboxed         as Vector
+import           Data.Coerce         (coerce)
+import           Data.Int            (Int8)
+import           Data.Semigroup      ((<>))
+import           Data.Text.Lazy      (Text, pack)
+import qualified Data.Vector.Unboxed as Vector
+import           Hedgehog            (Gen)
+import qualified Hedgehog.Gen        as Gen
+import qualified Hedgehog.Range      as Range
 
 import           HBF.Parser
 import           HBF.Types
