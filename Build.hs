@@ -72,6 +72,7 @@ configure wanted current = do
     confName Tests = "--enable-tests"
     confName Benchmarks = "--enable-benchmarks"
     confName Coverage = "--enable-coverage"
+    confName Base = ""
 
 ensureConfigure :: [ConfigureType] -> [ConfigureType] -> Action ()
 ensureConfigure wanted current =
@@ -90,10 +91,13 @@ nixrun c = nix ["--run", c]
 cabalFlagsFile :: FilePath
 cabalFlagsFile = "./dist/cabal-config-flags"
 
+sourceFiles :: Action [FilePath]
 sourceFiles = getDirectoryFiles "" ["src//*"]
 
+testFiles :: Action [FilePath]
 testFiles = getDirectoryFiles "" ["tests//*"]
 
+benchFiles :: Action [FilePath]
 benchFiles = getDirectoryFiles "" ["bench//*"]
 
 main :: IO ()
@@ -103,7 +107,7 @@ main =
    do
     getConfigure <-
       addOracle $ \ConfigureMapQ {} -> do
-        need ["hbf.cabal", "release.nix"]
+        need ["hbf.cabal", "default.nix", "release.nix"]
         configured <- doesFileExist cabalFlagsFile
         if configured
           then do
@@ -114,13 +118,16 @@ main =
               , (Coverage, "--enable-coverage" `isInfixOf` flags)
               ]
           else return []
+
     getConfigureStatus <-
       addOracle $ \(ConfigureStatusQ ctype) ->
         fromMaybe False . lookup ctype <$> getConfigure (ConfigureMapQ ())
+
     "default.nix" %> \out -> do
       need ["hbf.cabal"]
       Stdout stdout <- cmd "cabal2nix ."
       writeFileChanged out stdout
+
     phony "clean" $ do
       putNormal "Cabal cleaning"
       cmd_ "cabal clean"
@@ -200,12 +207,12 @@ main =
       cmd_ "cabal" "build"
     phony "build" $ need ["buildall"]
     execompiler %> \_ -> do
-      need <$> sourceFiles
+      sourceFiles >>= need
       current <- currentStatuses
       ensureConfigure [] current
       cmd_ "cabal" "build" "exe:hbfc"
     exevm %> \_ -> do
-      need <$> sourceFiles
+      sourceFiles >>= need
       current <- currentStatuses
       ensureConfigure [] current
       cmd_ "cabal" "build" "exe:hbf"
