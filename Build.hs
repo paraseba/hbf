@@ -102,9 +102,14 @@ benchFiles = getDirectoryFiles "" ["bench//*"]
 
 main :: IO ()
 main =
-  shakeArgs shakeOptions {shakeFiles = "_build"} $
-    -- fake write to file if nothing configured
-   do
+  shakeArgs
+    shakeOptions
+      { shakeFiles = "_shake"
+      , shakeThreads = 0
+      , shakeLint = Just LintBasic
+      , shakeColor = True
+      } $ do
+    want ["build"]
     getConfigure <-
       addOracle $ \ConfigureMapQ {} -> do
         need ["hbf.cabal", "default.nix", "release.nix"]
@@ -128,6 +133,9 @@ main =
     phony "clean" $ do
       putNormal "Cabal cleaning"
       cmd_ "cabal clean"
+      putNormal "Shake cleaning"
+      buildDir <- shakeFiles <$> getShakeOptions
+      removeFilesAfter buildDir ["//*"]
     let status = getConfigureStatus . ConfigureStatusQ
         currentStatuses = do
           t <- status Tests
@@ -181,7 +189,7 @@ main =
       sequence [sourceFiles, testFiles] >>= need . concat
       current <- currentStatuses
       ensureConfigure [Tests] current
-      cmd_ "cabal" "-j" "build" "test"
+      cmd_ "cabal build -j   test"
     phony "bench" $ do
       need ["public/.dummy", exebench]
       cmd_ exebench ["-o", "public/bench.html"]
@@ -189,12 +197,12 @@ main =
       sequence [sourceFiles, testFiles] >>= need . concat
       current <- currentStatuses
       ensureConfigure [Benchmarks] current
-      cmd_ "cabal" "build" "bench:evalbench"
+      cmd_ "cabal build -j bench:evalbench"
     phony "coverage" $ do
       need ["clean", "public/.dummy", exetest]
       oldstatus <- currentStatuses
       configure [Coverage, Tests] []
-      cmd_ "cabal" "test"
+      cmd_ "cabal test -j"
       cmd_ "cp" "-r" "dist/hpc/vanilla/html/test" "public/coverage"
       need ["clean"]
       configure oldstatus [Coverage, Tests]
@@ -202,18 +210,18 @@ main =
       sequence [sourceFiles, testFiles, benchFiles] >>= need . concat
       current <- currentStatuses
       ensureConfigure [Tests, Benchmarks] current
-      cmd_ "cabal" "build"
+      cmd_ "cabal build -j"
     phony "build" $ need ["buildall"]
     execompiler %> \_ -> do
       sourceFiles >>= need
       current <- currentStatuses
       ensureConfigure [] current
-      cmd_ "cabal" "build" "exe:hbfc"
+      cmd_ "cabal build -j exe:hbfc"
     exevm %> \_ -> do
       sourceFiles >>= need
       current <- currentStatuses
       ensureConfigure [] current
-      cmd_ "cabal" "build" "exe:hbf"
+      cmd_ "cabal build -j exe:hbf"
     phony "compiler" $ need [execompiler]
     phony "vm" $ need [exevm]
     "public/.dummy" %> \out -> do
