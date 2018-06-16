@@ -59,9 +59,12 @@ evalOp v pointer (Loop ops) = do
     else foldM (evalOp v) pointer ops >>= flip (evalOp v) (Loop ops)
 evalOp v pointer (Clear offset) =
   MV.write v (o2i $ pointer + offset) 0 >> return pointer
-evalOp v pointer (Mul factor offset) = do
-  value <- MV.read v (o2i pointer)
-  MV.modify v (\old -> old + value * factor2i factor) (o2i $ pointer + offset)
+evalOp v pointer (Mul factor from to) = do
+  value <- MV.read v (o2i $ pointer + from)
+  MV.modify
+    v
+    (\old -> old + value * factor2i factor)
+    (o2i $ pointer + from + to)
   return pointer
 evalOp v pointer (Scan Up offset) =
   (start +) . coerce . fromJust <$> VStream.findIndex (== 0) (MV.mstream slice) -- todo error handling

@@ -108,14 +108,14 @@ hprop_fusionDoesntLeaveAnythingToBeFused =
     let optimized = fusionOpt . toIR $ program
     H.assert $ all noNoOp (flattened optimized) && fullyFused optimized
   where
-    noNoOp (Inc n _)      = n /= 0
-    noNoOp (MRight n)     = n /= 0
-    noNoOp (In n _)       = n /= 0
-    noNoOp (Out n _)      = n /= 0
-    noNoOp (Clear _)      = True
-    noNoOp (Mul _ offset) = offset /= 0
-    noNoOp (Scan _ _)     = True
-    noNoOp (Loop _)       = error "noNoOp: unexpected operation"
+    noNoOp (Inc n _)    = n /= 0
+    noNoOp (MRight n)   = n /= 0
+    noNoOp (In n _)     = n /= 0
+    noNoOp (Out n _)    = n /= 0
+    noNoOp (Clear _)    = True
+    noNoOp (Mul _ _ to) = to /= 0
+    noNoOp (Scan _ _)   = True
+    noNoOp (Loop _)     = error "noNoOp: unexpected operation"
 
 hprop_FusedProgramHasValidMonoid :: Property
 hprop_FusedProgramHasValidMonoid = property $ HC.monoid programGen
@@ -154,9 +154,9 @@ unit_mulOptimization = mulOpt (Program p) @?= Program expected
     expected =
       [ Inc 2 0
       , Inc (-1) 0
-      , Mul 1 2
+      , Mul 1 0 2
       , Clear 0
-      , Loop [Inc (-1) 0, Mul 2 4, Mul 4 9, Clear 0, Inc 1 0]
+      , Loop [Inc (-1) 0, Mul 2 0 4, Mul 4 0 9, Clear 0, Inc 1 0]
       , Loop [Inc (-1) 0, MRight 1, Inc 1 0, MRight (-1), Inc 1 0]
       ]
 
@@ -174,4 +174,38 @@ unit_scanOptimization = scanOpt (Program p) @?= Program expected
       , Inc (-1) 0
       , Scan Down 0
       , Loop [Inc (-1) 0, Scan Up 0, Loop [MRight 2], Inc 1 0]
+      ]
+
+unit_offsetInstructionsOptimization :: Assertion
+unit_offsetInstructionsOptimization =
+  offsetInstructionOpt (Program p) @?= Program expected
+  where
+    p =
+      [ Inc 2 0
+      , MRight 1
+      , Inc (-1) 0
+      , MRight 2
+      , Mul 3 0 2
+      , Loop [MRight (-1)]
+      , Loop
+          [ Inc (-1) 0
+          , MRight (-1)
+          , In 1 0
+          , Loop [MRight 2, Inc 3 0, MRight (-1)]
+          , Inc 1 0
+          ]
+      ]
+    expected =
+      [ Inc 2 0
+      , Inc (-1) 1
+      , Mul 3 3 2
+      , MRight 3
+      , Loop [MRight (-1)]
+      , Loop
+          [ Inc (-1) 0
+          , In 1 (-1)
+          , MRight (-1)
+          , Loop [Inc 3 2, MRight 1]
+          , Inc 1 0
+          ]
       ]

@@ -31,6 +31,7 @@ data Op
   | Clear MemOffset
   | Mul MulFactor
         MemOffset
+        MemOffset
   | Scan Direction
          MemOffset
   deriving (Show, Eq, Generic, Binary, NFData)

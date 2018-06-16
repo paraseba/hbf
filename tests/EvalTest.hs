@@ -26,7 +26,7 @@ unit_evalScanR = do
   (index, take 6 mem) @?= (4, [42, 42, 42, 42, 17, 0])
   where
     program -- evaluating should give [42,42,42,42,17,0,...]
-     = Program [Inc 42 0, Mul 1 1, Mul 1 2, Mul 1 3, Scan Up 0, Inc 17 0]
+     = Program [Inc 42 0, Mul 1 0 1, Mul 1 0 2, Mul 1 0 3, Scan Up 0, Inc 17 0]
 
 unit_evalScanL :: Assertion
 unit_evalScanL = do
@@ -35,7 +35,7 @@ unit_evalScanL = do
   (index, take 6 mem) @?= (1, [0, 17, 42, 42, 42, 0])
   where
     program -- evaluating should give [0,17,42,42,42,0,...]
-     = Program [MRight 2, Inc 42 0, Mul 1 1, Mul 1 2, Scan Down 0, Inc 17 0]
+     = Program [MRight 2, Inc 42 0, Mul 1 0 1, Mul 1 0 2, Scan Down 0, Inc 17 0]
 
 unit_evalScanROnZero :: Assertion
 unit_evalScanROnZero = do

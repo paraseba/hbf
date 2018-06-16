@@ -143,7 +143,7 @@ mulOpt = liftLoop onLoops
         makeOp = (++ [Clear 0]) . snd . foldl it (0, [])
           where
             it (totalOff, res) (fact, off) =
-              (totalOff + off, res ++ [Mul fact (off + totalOff)]) -- todo very inefficient  foldr
+              (totalOff + off, res ++ [Mul fact 0 (off + totalOff)]) -- todo very inefficient  foldr
 
 scanOpt :: Program Optimized -> Program Optimized
 scanOpt = liftLoop onLoops
@@ -154,7 +154,30 @@ scanOpt = liftLoop onLoops
     onLoops _             = Nothing
 
 offsetInstructionOpt :: Program Optimized -> Program Optimized
-offsetInstructionOpt = id -- fixme
+offsetInstructionOpt =
+  Program . extract . foldl applyOffset ([], 0, []) . instructions
+  where
+    applyOffset :: ([Op], MemOffset, [Op]) -> Op -> ([Op], MemOffset, [Op])
+    applyOffset (res, accumOffset, chunk) op =
+      case op of
+        Loop l ->
+          ( [Loop (instructions $ offsetInstructionOpt (Program l))] ++
+            convertChunk accumOffset chunk ++ res
+          , 0
+          , [])
+        MRight n -> (res, accumOffset + n, chunk)
+        Inc n off -> (res, accumOffset, Inc n (off + accumOffset) : chunk)
+        In n off -> (res, accumOffset, In n (off + accumOffset) : chunk)
+        Out n off -> (res, accumOffset, Out n (off + accumOffset) : chunk)
+        Clear off -> (res, accumOffset, Clear (off + accumOffset) : chunk)
+        Scan d off -> (res, accumOffset, Scan d (off + accumOffset) : chunk)
+        Mul factor from to ->
+          (res, accumOffset, Mul factor (from + accumOffset) to : chunk)
+    convertChunk accumOffset chunk =
+      if accumOffset /= 0
+        then MRight accumOffset : chunk
+        else chunk
+    extract (res, offset, chunk) = reverse $ convertChunk offset chunk ++ res
 
 load :: ByteString -> Program Optimized
 load = B.decode
