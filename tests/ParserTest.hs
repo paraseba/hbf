@@ -19,11 +19,11 @@ unit_parseBasicProgram =
   parseProgram "+><-[+,.[-]<<]" @?= Right (Program result)
   where
     result =
-      [ Inc 1
+      [ Inc 1 0
       , MRight 1
       , MRight (-1)
-      , Inc (-1)
-      , Loop [Inc 1, In 1, Out 1, Loop [Inc (-1)], MRight (-1), MRight (-1)]
+      , Inc (-1) 0
+      , Loop [Inc 1 0, In 1 0, Out 1 0, Loop [Inc (-1) 0], MRight (-1), MRight (-1)]
       ]
 
 unit_cantParseEmpty :: Assertion

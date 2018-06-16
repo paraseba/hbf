@@ -34,10 +34,10 @@ simpleOp = build <$> oneOf bfSimpleTokens
   where
     build '>' = MRight 1
     build '<' = MRight (-1)
-    build '+' = Inc 1
-    build '-' = Inc (-1)
-    build '.' = Out 1
-    build ',' = In 1
+    build '+' = Inc 1 0
+    build '-' = Inc (-1) 0
+    build '.' = Out 1 0
+    build ',' = In 1 0
     build _   = error "Unknown character"
 
 loopOp :: Parser Op

@@ -9,6 +9,7 @@ module HBF.Compiler
 import           Control.Monad         (when)
 import qualified Data.Binary           as B
 import           Data.ByteString.Lazy  (ByteString)
+import           Data.Tuple (swap)
 import           Data.Coerce           (coerce)
 import           Data.Maybe            (fromMaybe)
 import           Data.Semigroup        (Semigroup (..), (<>))
@@ -17,7 +18,6 @@ import qualified Data.Text.Lazy.IO     as TIO
 import           Options.Applicative
 import           System.Environment    (getArgs)
 import           System.FilePath       ((-<.>))
-
 import           Data.Functor.Identity (Identity)
 import qualified Text.Parsec           as Parsec
 import           Text.Parsec.Pos       (initialPos)
@@ -68,6 +68,7 @@ optimize CompilerOptions {..} p = foldl (flip ($)) base optimizations
       [ opt cOptsClearLoopOptimization clearOpt
       , opt cOptsMulOptimization mulOpt
       , opt cOptsScanOptimization scanOpt
+      , opt cOptsOffsetInstructionsOptimization offsetInstructionOpt
       , opt cOptsFusionOptimization fusionOpt
       ]
 
@@ -87,13 +88,14 @@ instance Semigroup FusedProgram where
       fuse [op1] (op2:more) = join op1 op2 ++ more
       fuse (op1:more) ops2  = op1 : fuse more ops2
       join :: Op -> Op -> [Op]
-      join (Inc a) (Inc b)       = ifNotZero Inc $ a + b
+      join (Inc a n) (Inc b m) | n == m  = ifNotZero (flip Inc n) $ a + b
       join (MRight a) (MRight b) = ifNotZero MRight $ a + b
-      join (In a) (In b)         = ifNotZero In $ a + b
-      join (Out a) (Out b)       = ifNotZero Out $ a + b
-      join Clear Clear           = [Clear]
-      join ScanR ScanR           = [ScanR]
-      join ScanL ScanL           = [ScanL]
+      join (In a n) (In b m) | n == m         = ifNotZero (flip In n) $ a + b
+      join (Out a n) (Out b m) | n == m       = ifNotZero (flip Out n) $ a + b
+      join (Clear n) (Clear m) | n == m           = [Clear n]
+      -- once a scan is found, another one won't move the pointer
+      join (Scan Up o1) (Scan _ o2) | o1 == o2 = [Scan Up o1]
+      join (Scan Down o1) (Scan _ o2)  | o1 == o2         = [Scan Down o1]
       join a b                   = [a, b]
       ifNotZero f n = [f n | n /= 0]
 
@@ -122,7 +124,7 @@ clearOpt :: Program Optimized -> Program Optimized
 clearOpt = liftLoop onLoops
   where
     onLoops :: [Op] -> Maybe [Op]
-    onLoops [Inc (-1)] = Just [Clear]
+    onLoops [Inc (-1) 0] = Just [Clear 0]
     onLoops _          = Nothing
 
 mulOpt :: Program Optimized -> Program Optimized
@@ -131,19 +133,22 @@ mulOpt = liftLoop onLoops
     onLoops :: [Op] -> Maybe [Op]
     onLoops ops = makeOp <$> eitherToMaybe (Parsec.parse mulP "" ops)
       where
-        makeOp :: [(MulOffset, MulFactor)] -> [Op]
-        makeOp = (++ [Clear]) . snd . foldl it (0, [])
+        makeOp :: [(MulFactor, MemOffset)] -> [Op]
+        makeOp = (++ [Clear 0]) . snd . foldl it (0, [])
           where
-            it (totalOff, res) (off, fact) =
-              (totalOff + off, res ++ [Mul (off + totalOff) fact]) -- todo very inefficient  foldr
+            it (totalOff, res) (fact, off) =
+              (totalOff + off, res ++ [Mul fact (off + totalOff)]) -- todo very inefficient  foldr
 
 scanOpt :: Program Optimized -> Program Optimized
 scanOpt = liftLoop onLoops
   where
     onLoops :: [Op] -> Maybe [Op]
-    onLoops [MRight 1]    = Just [ScanR]
-    onLoops [MRight (-1)] = Just [ScanL]
+    onLoops [MRight 1]    = Just [Scan Up 0]
+    onLoops [MRight (-1)] = Just [Scan Down 0]
     onLoops _             = Nothing
+
+offsetInstructionOpt :: Program Optimized -> Program Optimized
+offsetInstructionOpt = id -- fixme
 
 load :: ByteString -> Program Optimized
 load = B.decode
@@ -157,6 +162,7 @@ data CompilerOptions = CompilerOptions
   , cOptsClearLoopOptimization :: Bool
   , cOptsMulOptimization       :: Bool
   , cOptsScanOptimization      :: Bool
+  , cOptsOffsetInstructionsOptimization      :: Bool
   , cOptsVerbose               :: Bool
   , cOptsSource                :: FilePath
   } deriving (Show)
@@ -191,6 +197,11 @@ optionsP =
     False
     (long "disable-scan-loop-optimization" <>
      help "Disable scan loop optimization (turn [>] into ScanR operation)") <*>
+  flag
+    True
+    False
+    (long "disable-offset-instructions-optimization" <>
+     help "Disable offset instructions optimization (turn >>+>->> into Inc 1 2, Inc (-1) 1, MRight 1, MRight 1, MRight 1, MRight 1, MRight 1, operation)") <*>
   switch
     (long "verbose" <> short 'v' <> help "Output more debugging information") <*>
   argument str (metavar "SRC" <> help "Input source code file")
@@ -210,6 +221,7 @@ defaultCompilerOptions =
     , cOptsClearLoopOptimization = True
     , cOptsMulOptimization = True
     , cOptsScanOptimization = True
+    , cOptsOffsetInstructionsOptimization = True
     , cOptsVerbose = False
     , cOptsSource = ""
     }
@@ -222,6 +234,7 @@ noOptimizationCompilerOptions =
     , cOptsClearLoopOptimization = False
     , cOptsMulOptimization = False
     , cOptsScanOptimization = False
+    , cOptsOffsetInstructionsOptimization = False
     , cOptsVerbose = False
     , cOptsSource = ""
     }
@@ -248,13 +261,13 @@ satisfy' predicate = Parsec.token showTok posFromTok testTok
         then Just t
         else Nothing
 
-mrightP :: ProgramParser Int
+mrightP :: ProgramParser MemOffset
 mrightP =
   satisfy' isRight <&> \case
     MRight n -> n
     _ -> undefined
 
-mleftP :: ProgramParser Int
+mleftP :: ProgramParser MemOffset
 mleftP =
   satisfy' isLeft <&> \case
     MRight n -> (negate n)
@@ -263,16 +276,16 @@ mleftP =
 plusP :: ProgramParser Int
 plusP =
   satisfy' isPlus <&> \case
-    Inc n -> n
+    Inc n 0 -> n
     _ -> undefined
 
 minusP :: ProgramParser Int
 minusP =
   satisfy' isMinus <&> \case
-    Inc n -> (negate n)
+    Inc n 0 -> (negate n)
     _ -> undefined
 
-summedP :: ProgramParser Int -> ProgramParser Int
+summedP :: Num n => ProgramParser n -> ProgramParser n
 summedP = fmap sum . Parsec.many1
 
 isRight :: Op -> Bool
@@ -286,24 +299,24 @@ isLeft (MRight n)
 isLeft _ = False
 
 isPlus :: Op -> Bool
-isPlus (Inc n)
+isPlus (Inc n 0)
   | n > 0 = True
 isPlus _ = False
 
 isMinus :: Op -> Bool
-isMinus (Inc n)
+isMinus (Inc n 0)
   | n < 0 = True
 isMinus _ = False
 
-mulP :: ProgramParser [(MulOffset, MulFactor)]
+mulP :: ProgramParser [(MulFactor, MemOffset)]
 mulP = do
   _ <- minusP
   copies <- Parsec.many1 shiftFactorP
   let totalShift = sum $ map fst copies
   back <- summedP mleftP
   Parsec.eof
-  if back == totalShift
-    then return $ coerce copies
+  if back == coerce totalShift
+    then return (fmap swap copies)
     else Parsec.unexpected "number of left returns to close the loop"
   where
-    shiftFactorP = (,) <$> summedP mrightP <*> summedP plusP
+    shiftFactorP = (,) <$> summedP mrightP <*> fmap MulFactor (summedP plusP)

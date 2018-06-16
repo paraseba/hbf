@@ -46,24 +46,25 @@ programGen =
     basic :: Gen [Op]
     basic =
       Gen.frequency
-        [ (100, pure [Inc 1])
-        , (50, pure [Inc (-1)])
+        [ (100, pure [Inc 1 0])
+        , (50, pure [Inc (-1) 0])
         , (80, pure [MRight (-1)])
         , (70, pure [MRight 1])
-        , (5, pure [Out 1])
-        , (2, pure [In 1])
+        , (5, pure [Out 1 0])
+        , (2, pure [In 1 0])
         , (10, (\b -> b ++ b) <$> basic) --fusable
         , (3, pure [Loop [MRight (-1)]]) --scanL
         , (2, pure [Loop [MRight 1]]) --scanR
-        , (1, pure [Loop [Inc (-1)]]) --clear loop
+        , (1, pure [Loop [Inc (-1) 0]]) --clear loop
         , ( 1
           , pure
-              [ Inc (-1)
+              [ Inc (-1) 0
               , MRight 1
-              , Inc 1
-              , Inc 1
-              , MRight 2
-              , Inc (-1)
+              , Inc 1 0
+              , Inc 1 0
+              , MRight 1
+              , MRight 1
+              , Inc (-1) 0
               , MRight (-1)
               , MRight (-1)
               ]) --mul loop --fixme use makeMul
@@ -72,15 +73,13 @@ programGen =
     weights (nonrec:recursive:_) = Gen.frequency [(10, nonrec), (1, recursive)]
     weights [] = error "programGen: unexpected condition"
 
-makeMul :: [(MulOffset, MulFactor)] -> Op
+makeMul :: [(MulFactor, MemOffset)] -> Op
 makeMul muls =
   Loop $
-  (Inc (-1) : concatMap mkMul muls') ++
-  replicate (sum $ map fst muls') (MRight (-1))
+  (Inc (-1) 0 : concatMap mkMul muls) ++
+  replicate (coerce $ sum $ map snd muls) (MRight (-1))
   where
-    mkMul (off, fact) = replicate off (MRight 1) ++ replicate fact (Inc 1)
-    muls' :: [(Int, Int)]
-    muls' = coerce muls
+    mkMul (MulFactor fact, MemOffset off) = replicate off (MRight 1) ++ replicate fact (Inc 1 0)
 
 listTape :: Tape (Vector.Vector Int8) -> Tape [Int8]
 listTape t = Tape {pointer = pointer t, memory = Vector.toList (memory t)}

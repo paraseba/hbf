@@ -20,26 +20,28 @@ import           GHC.Generics                   (Generic)
 import           System.IO                      (hFlush, stdout)
 
 data Op
-  = Inc Int
-  | MRight Int
-  | In Int
-  | Out Int
+  = Inc Int MemOffset
+  | MRight MemOffset
+  | In Int MemOffset
+  | Out Int MemOffset
   | Loop [Op]
-  | Clear
-  | Mul MulOffset
-        MulFactor
-  | ScanR
-  | ScanL
+  | Clear MemOffset
+  | Mul MulFactor MemOffset
+  | Scan Direction MemOffset
   deriving (Show, Eq, Generic, Binary, NFData)
 
-newtype MulOffset = MulOffset Int
+newtype MemOffset = MemOffset Int
   deriving Generic
-  deriving newtype (Show, Eq, Num)
+  deriving newtype (Show, Eq, Num, Ord)
   deriving anyclass (Binary, NFData)
 
 newtype MulFactor = MulFactor Int
   deriving Generic
   deriving newtype (Show, Eq, Num)
+  deriving anyclass (Binary, NFData)
+
+data Direction = Up | Down
+  deriving (Show, Eq, Generic)
   deriving anyclass (Binary, NFData)
 
 data Optimized
@@ -68,7 +70,7 @@ instance Monoid (Program o) where
 
 data Tape v = Tape
   { memory  :: v
-  , pointer :: Int
+  , pointer :: MemOffset
   } deriving (Show, Eq)
 
 class MachineIO m where
