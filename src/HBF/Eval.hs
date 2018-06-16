@@ -6,13 +6,13 @@ module HBF.Eval where
 
 import           Control.Monad                     (foldM, replicateM)
 import           Control.Monad.Primitive           (PrimMonad, PrimState)
+import           Data.Coerce                       (coerce)
 import           Data.Int
 import           Data.Maybe                        (fromJust, fromMaybe)
 import qualified Data.Vector.Fusion.Stream.Monadic as VStream
 import qualified Data.Vector.Generic               as GV
 import qualified Data.Vector.Generic.Mutable       as MV
 import qualified Data.Vector.Unboxed               as V
-import Data.Coerce (coerce)
 
 import           HBF.Types
 
@@ -42,23 +42,26 @@ evalOp v pointer (Inc n memOffset) =
   MV.modify v (+ fromIntegral n) (o2i $ pointer + memOffset) >> return pointer
 evalOp _ pointer (MRight n) = return $ pointer + n
 evalOp v pointer (Out n memOffset) =
-  MV.read v (o2i  $ pointer + memOffset) >>= replicateM n . putByte >> return pointer
+  MV.read v (o2i $ pointer + memOffset) >>= replicateM n . putByte >>
+  return pointer
 evalOp v pointer (In n memOffset) =
   if n == 0
     then return pointer
-    else input >>= MV.write v (o2i  $ pointer + memOffset) . fromMaybe 0 >> return pointer
+    else input >>= MV.write v (o2i $ pointer + memOffset) . fromMaybe 0 >>
+         return pointer
   where
     input :: m (Maybe Int8)
     input = foldr (flip (>>)) (return Nothing) $ replicate n getByte
 evalOp v pointer (Loop ops) = do
-  condition <- MV.read v (o2i  pointer)
+  condition <- MV.read v (o2i pointer)
   if condition == 0
     then return pointer
     else foldM (evalOp v) pointer ops >>= flip (evalOp v) (Loop ops)
-evalOp v pointer (Clear offset) = MV.write v (o2i  $ pointer + offset) 0 >> return pointer
+evalOp v pointer (Clear offset) =
+  MV.write v (o2i $ pointer + offset) 0 >> return pointer
 evalOp v pointer (Mul factor offset) = do
   value <- MV.read v (o2i pointer)
-  MV.modify v (\old -> old + value * factor2i factor) (o2i  $ pointer + offset)
+  MV.modify v (\old -> old + value * factor2i factor) (o2i $ pointer + offset)
   return pointer
 evalOp v pointer (Scan Up offset) =
   (start +) . coerce . fromJust <$> VStream.findIndex (== 0) (MV.mstream slice) -- todo error handling
@@ -75,12 +78,12 @@ evalOp v pointer (Scan Down offset) =
 
 o2i :: MemOffset -> Int
 o2i = coerce
-{-# INLINE o2i #-}
 
+{-# INLINE o2i #-}
 factor2i :: MulFactor -> Int8
 factor2i = fromIntegral . (coerce :: MulFactor -> Int)
-{-# INLINE factor2i #-}
 
+{-# INLINE factor2i #-}
 tapeSize :: Int
 tapeSize = 30000
 

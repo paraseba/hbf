@@ -39,12 +39,10 @@ unit_fusionOptimization = fusionOpt (Program p) @?= Program expected
           , Scan Up 0
           , Scan Down 3
           , Scan Down 3
-          , Scan Up 0  -- shouldn't fuse the next two
+          , Scan Up 0 -- shouldn't fuse the next two
           , Scan Up 3
-          , Scan Down 0  -- shouldn't fuse the next two
+          , Scan Down 0 -- shouldn't fuse the next two
           , Scan Down 3
-
-
           ]
       ]
     expected =
@@ -55,7 +53,16 @@ unit_fusionOptimization = fusionOpt (Program p) @?= Program expected
       , Out 8 0
       , Out 1 1
       , Out 1 2
-      , Loop [Inc 3 0, Loop [MRight 3, Clear 0, Clear 1, Clear 2], Scan Up 0, Scan Down 3, Scan Up 0, Scan Up 3, Scan Down 0, Scan Down 3]
+      , Loop
+          [ Inc 3 0
+          , Loop [MRight 3, Clear 0, Clear 1, Clear 2]
+          , Scan Up 0
+          , Scan Down 3
+          , Scan Up 0
+          , Scan Up 3
+          , Scan Down 0
+          , Scan Down 3
+          ]
       ]
 
 unit_optimizationsDontChangeResults :: Assertion
@@ -74,19 +81,24 @@ fullyFused :: Program o -> Bool
 fullyFused p = all (uncurry fused) (zip ops (tail ops))
   where
     ops = instructions p
-    fused (Inc _ n) (Inc _ m) | n == m       = False
+    fused (Inc _ n) (Inc _ m)
+      | n == m = False
     fused (MRight _) (MRight _) = False
-    fused (In _ n) (In _ m) | n == m         = False
-    fused (Out _ n) (Out _ m) | n == m       = False
-    fused (Clear n) (Clear m) | n == m           = False
-    fused (Loop inner) _        = fullyFused $ Program inner
-    fused _ (Loop inner)        = fullyFused $ Program inner
-    fused _ _                   = True
+    fused (In _ n) (In _ m)
+      | n == m = False
+    fused (Out _ n) (Out _ m)
+      | n == m = False
+    fused (Clear n) (Clear m)
+      | n == m = False
+    fused (Loop inner) _ = fullyFused $ Program inner
+    fused _ (Loop inner) = fullyFused $ Program inner
+    fused _ _ = True
 
 unit_fullyFusedTest :: Assertion
 unit_fullyFusedTest =
   not (fullyFused $ Program [Inc 1 1, Inc 4 1]) &&
-  not (fullyFused $ Program [Inc 1 0, Loop [Inc 1 1, Loop [MRight 1, MRight 2]]]) &&
+  not
+    (fullyFused $ Program [Inc 1 0, Loop [Inc 1 1, Loop [MRight 1, MRight 2]]]) &&
   fullyFused (Program [Inc 1 0, MRight 2]) @=? True
 
 hprop_fusionDoesntLeaveAnythingToBeFused :: Property
@@ -96,14 +108,14 @@ hprop_fusionDoesntLeaveAnythingToBeFused =
     let optimized = fusionOpt . toIR $ program
     H.assert $ all noNoOp (flattened optimized) && fullyFused optimized
   where
-    noNoOp (Inc n _)    = n /= 0
-    noNoOp (MRight n) = n /= 0
-    noNoOp (In n _)     = n /= 0
-    noNoOp (Out n _)    = n /= 0
+    noNoOp (Inc n _)      = n /= 0
+    noNoOp (MRight n)     = n /= 0
+    noNoOp (In n _)       = n /= 0
+    noNoOp (Out n _)      = n /= 0
     noNoOp (Clear _)      = True
-    noNoOp (Mul _ offset)  = offset /= 0
-    noNoOp (Scan _ _)      = True
-    noNoOp (Loop _)   = error "noNoOp: unexpected operation"
+    noNoOp (Mul _ offset) = offset /= 0
+    noNoOp (Scan _ _)     = True
+    noNoOp (Loop _)       = error "noNoOp: unexpected operation"
 
 hprop_FusedProgramHasValidMonoid :: Property
 hprop_FusedProgramHasValidMonoid = property $ HC.monoid programGen
@@ -158,4 +170,8 @@ unit_scanOptimization = scanOpt (Program p) @?= Program expected
       , Loop [Inc (-1) 0, Loop [MRight 1], Loop [MRight 2], Inc 1 0]
       ]
     expected =
-      [Inc 2 0, Inc (-1) 0, Scan Down 0, Loop [Inc (-1) 0, Scan Up 0, Loop [MRight 2], Inc 1 0]]
+      [ Inc 2 0
+      , Inc (-1) 0
+      , Scan Down 0
+      , Loop [Inc (-1) 0, Scan Up 0, Loop [MRight 2], Inc 1 0]
+      ]

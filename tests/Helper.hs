@@ -79,7 +79,8 @@ makeMul muls =
   (Inc (-1) 0 : concatMap mkMul muls) ++
   replicate (coerce $ sum $ map snd muls) (MRight (-1))
   where
-    mkMul (MulFactor fact, MemOffset off) = replicate off (MRight 1) ++ replicate fact (Inc 1 0)
+    mkMul (MulFactor fact, MemOffset off) =
+      replicate off (MRight 1) ++ replicate fact (Inc 1 0)
 
 listTape :: Tape (Vector.Vector Int8) -> Tape [Int8]
 listTape t = Tape {pointer = pointer t, memory = Vector.toList (memory t)}

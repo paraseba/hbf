@@ -20,27 +20,36 @@ import           GHC.Generics                   (Generic)
 import           System.IO                      (hFlush, stdout)
 
 data Op
-  = Inc Int MemOffset
+  = Inc Int
+        MemOffset
   | MRight MemOffset
-  | In Int MemOffset
-  | Out Int MemOffset
+  | In Int
+       MemOffset
+  | Out Int
+        MemOffset
   | Loop [Op]
   | Clear MemOffset
-  | Mul MulFactor MemOffset
-  | Scan Direction MemOffset
+  | Mul MulFactor
+        MemOffset
+  | Scan Direction
+         MemOffset
   deriving (Show, Eq, Generic, Binary, NFData)
 
-newtype MemOffset = MemOffset Int
-  deriving Generic
+newtype MemOffset =
+  MemOffset Int
+  deriving (Generic)
   deriving newtype (Show, Eq, Num, Ord)
   deriving anyclass (Binary, NFData)
 
-newtype MulFactor = MulFactor Int
-  deriving Generic
+newtype MulFactor =
+  MulFactor Int
+  deriving (Generic)
   deriving newtype (Show, Eq, Num)
   deriving anyclass (Binary, NFData)
 
-data Direction = Up | Down
+data Direction
+  = Up
+  | Down
   deriving (Show, Eq, Generic)
   deriving anyclass (Binary, NFData)
 
@@ -50,10 +59,9 @@ data Unoptimized
 
 newtype Program optimized = Program
   { instructions :: [Op]
-  }
-  deriving Generic
-  deriving newtype (Show, Eq)
-  deriving anyclass (Binary, NFData)
+  } deriving (Generic) deriving newtype (Show, Eq) deriving anyclass ( Binary
+                                                                     , NFData
+                                                                     )
 
 flattened :: Program o -> [Op]
 flattened p = [atom | op <- instructions p, atom <- atoms op]
@@ -86,7 +94,6 @@ instance MachineIO IO where
       recover _ = return Nothing
 
 -- fixme move to test helper
-
 data MockIO = MockIO
   { machineIn  :: [Int8]
   , machineOut :: [Int8]

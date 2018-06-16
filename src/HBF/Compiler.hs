@@ -9,16 +9,16 @@ module HBF.Compiler
 import           Control.Monad         (when)
 import qualified Data.Binary           as B
 import           Data.ByteString.Lazy  (ByteString)
-import           Data.Tuple (swap)
 import           Data.Coerce           (coerce)
+import           Data.Functor.Identity (Identity)
 import           Data.Maybe            (fromMaybe)
 import           Data.Semigroup        (Semigroup (..), (<>))
 import           Data.Text.Lazy        (Text)
 import qualified Data.Text.Lazy.IO     as TIO
+import           Data.Tuple            (swap)
 import           Options.Applicative
 import           System.Environment    (getArgs)
 import           System.FilePath       ((-<.>))
-import           Data.Functor.Identity (Identity)
 import qualified Text.Parsec           as Parsec
 import           Text.Parsec.Pos       (initialPos)
 
@@ -88,15 +88,21 @@ instance Semigroup FusedProgram where
       fuse [op1] (op2:more) = join op1 op2 ++ more
       fuse (op1:more) ops2  = op1 : fuse more ops2
       join :: Op -> Op -> [Op]
-      join (Inc a n) (Inc b m) | n == m  = ifNotZero (flip Inc n) $ a + b
+      join (Inc a n) (Inc b m)
+        | n == m = ifNotZero (flip Inc n) $ a + b
       join (MRight a) (MRight b) = ifNotZero MRight $ a + b
-      join (In a n) (In b m) | n == m         = ifNotZero (flip In n) $ a + b
-      join (Out a n) (Out b m) | n == m       = ifNotZero (flip Out n) $ a + b
-      join (Clear n) (Clear m) | n == m           = [Clear n]
+      join (In a n) (In b m)
+        | n == m = ifNotZero (flip In n) $ a + b
+      join (Out a n) (Out b m)
+        | n == m = ifNotZero (flip Out n) $ a + b
+      join (Clear n) (Clear m)
+        | n == m = [Clear n]
       -- once a scan is found, another one won't move the pointer
-      join (Scan Up o1) (Scan _ o2) | o1 == o2 = [Scan Up o1]
-      join (Scan Down o1) (Scan _ o2)  | o1 == o2         = [Scan Down o1]
-      join a b                   = [a, b]
+      join (Scan Up o1) (Scan _ o2)
+        | o1 == o2 = [Scan Up o1]
+      join (Scan Down o1) (Scan _ o2)
+        | o1 == o2 = [Scan Down o1]
+      join a b = [a, b]
       ifNotZero f n = [f n | n /= 0]
 
 instance Monoid FusedProgram where
@@ -125,7 +131,7 @@ clearOpt = liftLoop onLoops
   where
     onLoops :: [Op] -> Maybe [Op]
     onLoops [Inc (-1) 0] = Just [Clear 0]
-    onLoops _          = Nothing
+    onLoops _            = Nothing
 
 mulOpt :: Program Optimized -> Program Optimized
 mulOpt = liftLoop onLoops
@@ -157,14 +163,14 @@ loadFile :: FilePath -> IO (Program Optimized)
 loadFile = B.decodeFile
 
 data CompilerOptions = CompilerOptions
-  { cOptsOut                   :: Maybe FilePath
-  , cOptsFusionOptimization    :: Bool
-  , cOptsClearLoopOptimization :: Bool
-  , cOptsMulOptimization       :: Bool
-  , cOptsScanOptimization      :: Bool
-  , cOptsOffsetInstructionsOptimization      :: Bool
-  , cOptsVerbose               :: Bool
-  , cOptsSource                :: FilePath
+  { cOptsOut                            :: Maybe FilePath
+  , cOptsFusionOptimization             :: Bool
+  , cOptsClearLoopOptimization          :: Bool
+  , cOptsMulOptimization                :: Bool
+  , cOptsScanOptimization               :: Bool
+  , cOptsOffsetInstructionsOptimization :: Bool
+  , cOptsVerbose                        :: Bool
+  , cOptsSource                         :: FilePath
   } deriving (Show)
 
 optionsP :: Parser CompilerOptions
@@ -201,7 +207,8 @@ optionsP =
     True
     False
     (long "disable-offset-instructions-optimization" <>
-     help "Disable offset instructions optimization (turn >>+>->> into Inc 1 2, Inc (-1) 1, MRight 1, MRight 1, MRight 1, MRight 1, MRight 1, operation)") <*>
+     help
+       "Disable offset instructions optimization (turn >>+>->> into Inc 1 2, Inc (-1) 1, MRight 1, MRight 1, MRight 1, MRight 1, MRight 1, operation)") <*>
   switch
     (long "verbose" <> short 'v' <> help "Output more debugging information") <*>
   argument str (metavar "SRC" <> help "Input source code file")
