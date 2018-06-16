@@ -198,40 +198,44 @@ data CompilerOptions = CompilerOptions
 
 optionsP :: Parser CompilerOptions
 optionsP =
-  CompilerOptions <$>
+  (\output disableAll fusion clear mul scan offset verbose source ->
+     CompilerOptions {
+      cOptsOut = output
+      , cOptsFusionOptimization = not disableAll || fusion
+      , cOptsClearLoopOptimization = not disableAll || clear
+      , cOptsMulOptimization = not disableAll || mul
+      , cOptsScanOptimization = not disableAll || scan
+      , cOptsOffsetInstructionsOptimization = not disableAll || offset
+      , cOptsVerbose = verbose
+      , cOptsSource = source} ) <$>
   optional
     (option
        str
        (long "output" <> short 'o' <> metavar "OUT" <>
         help "Compiled output path")) <*>
-  flag
-    True
-    False
-    (long "disable-fusion-optimization" <>
+
+  switch
+    (long "disable-all-optimizations" <>
+     short 'd' <>
+     help "Disable all optimizations") <*>
+  switch
+    (long "fusion" <>
      help
-       "Disable fusion optimization (turn multiple + or > into a single operation)") <*>
-  flag
-    True
-    False
-    (long "disable-clear-loop-optimization" <>
-     help "Disable clear loop optimization (turn [-] into a single operation)") <*>
-  flag
-    True
-    False
-    (long "disable-mul-loop-optimization" <>
+       "Reenable fusion optimization (turn multiple + or > into a single operation)") <*>
+  switch
+    (long "clear" <>
+     help "Reenable clear loop optimization (turn [-] into a single operation)") <*>
+  switch
+    (long "mul" <>
      help
-       "Disable mul loop optimization (turn [->++>+++<<] into [Mul(1, 2) Mul(2,3)] Clear operations)") <*>
-  flag
-    True
-    False
-    (long "disable-scan-loop-optimization" <>
-     help "Disable scan loop optimization (turn [>] into ScanR operation)") <*>
-  flag
-    True
-    False
-    (long "disable-offset-instructions-optimization" <>
+       "Reenable mul loop optimization (turn [->++>+++<<] into [Mul(1, 2) Mul(2,3)] Clear operations)") <*>
+  switch
+    (long "scan" <>
+     help "Reenable scan loop optimization (turn [>] into ScanR operation)") <*>
+  switch
+    (long "offset" <>
      help
-       "Disable offset instructions optimization (turn >>+>->> into Inc 1 2, Inc (-1) 1, MRight 1, MRight 1, MRight 1, MRight 1, MRight 1, operation)") <*>
+       "Reenable offset instructions optimization (turn >>+>->> into Inc 1 2, Inc (-1) 1, MRight 1, MRight 1, MRight 1, MRight 1, MRight 1, operation)") <*>
   switch
     (long "verbose" <> short 'v' <> help "Output more debugging information") <*>
   argument str (metavar "SRC" <> help "Input source code file")
