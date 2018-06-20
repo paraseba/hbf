@@ -112,7 +112,7 @@ main =
     want ["build"]
     getConfigure <-
       addOracle $ \ConfigureMapQ {} -> do
-        need ["hbf.cabal", "default.nix", "release.nix"]
+        need ["hbf.cabal", "default.nix", "release.nix", cabalFlagsFile]
         configured <- doesFileExist cabalFlagsFile
         if configured
           then do
@@ -218,7 +218,8 @@ main =
       ensureConfigure [] current
       cmd_ "cabal build -j exe:hbfc"
     exevm %> \_ -> do
-      sourceFiles >>= need
+      sources <- sourceFiles
+      need $ cabalFlagsFile : sources
       current <- currentStatuses
       ensureConfigure [] current
       cmd_ "cabal build -j exe:hbf"

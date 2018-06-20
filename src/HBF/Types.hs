@@ -20,20 +20,20 @@ import           GHC.Generics                   (Generic)
 import           System.IO                      (hFlush, stdout)
 
 data Op
-  = Inc Int
-        MemOffset
-  | MRight MemOffset
-  | In Int
-       MemOffset
-  | Out Int
-        MemOffset
-  | Loop [Op]
-  | Clear MemOffset
-  | Mul MulFactor
-        MemOffset
-        MemOffset
-  | Scan Direction
-         MemOffset
+  = Inc {-# UNPACK #-}!Int
+        {-# UNPACK #-}!MemOffset
+  | MRight {-# UNPACK #-}!MemOffset
+  | In {-# UNPACK #-}!Int
+       {-# UNPACK #-}!MemOffset
+  | Out {-# UNPACK #-}!Int
+        {-# UNPACK #-}!MemOffset
+  | Loop ![Op]
+  | Clear {-# UNPACK #-}!MemOffset
+  | Mul {-# UNPACK #-}!MulFactor
+        {-# UNPACK #-}!MemOffset
+        {-# UNPACK #-}!MemOffset
+  | Scan !Direction
+         {-# UNPACK #-}!MemOffset
   deriving (Show, Eq, Generic, Binary, NFData)
 
 newtype MemOffset =

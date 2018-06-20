@@ -22,6 +22,11 @@ flag dump
   manual: True
   default: False
 
+flag profile
+  description: Enable profiling in benchmarks
+  manual: True
+  default: False
+
 library
   exposed-modules: HBF.Types
                  , HBF.Parser
@@ -54,7 +59,18 @@ library
 
 
   if flag(dump)
-    ghc-options: -ddump-simpl -ddump-stg -ddump-to-file
+    ghc-options:
+                -ddump-simpl
+                -ddump-stg
+                -ddump-to-file
+                -dsuppress-idinfo
+                -dsuppress-coercions
+                -dsuppress-type-applications
+                -dsuppress-uniques
+                -- -dsuppress-module-prefixes
+
+  if flag(profile)
+    ghc-options: -fprof-auto
 
 executable hbfc
   main-is:             Hbfc.hs
@@ -84,6 +100,10 @@ executable hbf
                -main-is Hbf
                -fwarn-incomplete-record-updates
                -fwarn-monomorphism-restriction
+
+  if flag(profile)
+    ghc-options: -fprof-auto
+                 "-with-rtsopts=-p -s -h -i0.05"
 
 test-suite test
   default-language:

@@ -199,24 +199,23 @@ data CompilerOptions = CompilerOptions
 optionsP :: Parser CompilerOptions
 optionsP =
   (\output disableAll fusion clear mul scan offset verbose source ->
-     CompilerOptions {
-      cOptsOut = output
-      , cOptsFusionOptimization = not disableAll || fusion
-      , cOptsClearLoopOptimization = not disableAll || clear
-      , cOptsMulOptimization = not disableAll || mul
-      , cOptsScanOptimization = not disableAll || scan
-      , cOptsOffsetInstructionsOptimization = not disableAll || offset
-      , cOptsVerbose = verbose
-      , cOptsSource = source} ) <$>
+     CompilerOptions
+       { cOptsOut = output
+       , cOptsFusionOptimization = not disableAll || fusion
+       , cOptsClearLoopOptimization = not disableAll || clear
+       , cOptsMulOptimization = not disableAll || mul
+       , cOptsScanOptimization = not disableAll || scan
+       , cOptsOffsetInstructionsOptimization = not disableAll || offset
+       , cOptsVerbose = verbose
+       , cOptsSource = source
+       }) <$>
   optional
     (option
        str
        (long "output" <> short 'o' <> metavar "OUT" <>
         help "Compiled output path")) <*>
-
   switch
-    (long "disable-all-optimizations" <>
-     short 'd' <>
+    (long "disable-all-optimizations" <> short 'd' <>
      help "Disable all optimizations") <*>
   switch
     (long "fusion" <>
