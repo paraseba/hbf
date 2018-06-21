@@ -6,23 +6,25 @@ module HBF.Compiler
   , module HBF.Compiler
   ) where
 
-import           Control.Monad         (when)
-import qualified Data.Binary           as B
-import           Data.ByteString.Lazy  (ByteString)
-import           Data.Coerce           (coerce)
-import           Data.Functor.Identity (Identity)
-import           Data.Maybe            (fromMaybe)
-import           Data.Semigroup        (Semigroup (..), (<>))
-import           Data.Text.Lazy        (Text)
-import qualified Data.Text.Lazy.IO     as TIO
-import           Data.Tuple            (swap)
+import           Control.Monad                  (when)
+import           Control.Monad.Trans.State.Lazy
+import qualified Data.Binary                    as B
+import           Data.ByteString.Lazy           (ByteString)
+import           Data.Coerce                    (coerce)
+import           Data.Foldable                  (traverse_)
+import           Data.Functor.Identity          (Identity)
+import           Data.Maybe                     (fromMaybe)
+import           Data.Semigroup                 (Semigroup (..), (<>))
+import           Data.Text.Lazy                 (Text)
+import qualified Data.Text.Lazy.IO              as TIO
+import           Data.Tuple                     (swap)
 import           Options.Applicative
-import           System.Environment    (getArgs)
-import           System.FilePath       ((-<.>))
-import qualified Text.Parsec           as Parsec
-import           Text.Parsec.Pos       (initialPos)
+import           System.Environment             (getArgs)
+import           System.FilePath                ((-<.>))
+import qualified Text.Parsec                    as Parsec
+import           Text.Parsec.Pos                (initialPos)
 
-import qualified HBF.Parser            as BFP
+import qualified HBF.Parser                     as BFP
 import           HBF.Types
 
 saveCompilerOutput :: Program Optimized -> FilePath -> IO ()
@@ -153,31 +155,56 @@ scanOpt = liftLoop onLoops
     onLoops [MRight (-1)] = Just [Scan Down 0]
     onLoops _             = Nothing
 
+data OffsetState = OffSt
+  { stOptimized :: [Op]
+  , stBatch     :: [Op]
+  , stOffset    :: MemOffset
+  } deriving (Show)
+
+emptyState :: OffsetState
+emptyState = OffSt [] [] 0
+
 offsetInstructionOpt :: Program Optimized -> Program Optimized
 offsetInstructionOpt =
-  Program . extract . foldl applyOffset ([], 0, []) . instructions
+  Program .
+  stOptimized .
+  (`execState` emptyState) .
+  (*> finishLastBatch) . traverse_ processOp . instructions
   where
-    applyOffset :: ([Op], MemOffset, [Op]) -> Op -> ([Op], MemOffset, [Op])
-    applyOffset (res, accumOffset, chunk) op =
-      case op of
-        Loop l ->
-          ( [Loop (instructions $ offsetInstructionOpt (Program l))] ++
-            convertChunk accumOffset chunk ++ res
-          , 0
-          , [])
-        MRight n -> (res, accumOffset + n, chunk)
-        Inc n off -> (res, accumOffset, Inc n (off + accumOffset) : chunk)
-        In n off -> (res, accumOffset, In n (off + accumOffset) : chunk)
-        Out n off -> (res, accumOffset, Out n (off + accumOffset) : chunk)
-        Clear off -> (res, accumOffset, Clear (off + accumOffset) : chunk)
-        Scan d off -> (res, 0, Scan d (off + accumOffset) : chunk)
-        Mul factor from to ->
-          (res, accumOffset, Mul factor (from + accumOffset) to : chunk)
-    convertChunk accumOffset chunk =
-      if accumOffset /= 0
-        then MRight accumOffset : chunk
-        else chunk
-    extract (res, offset, chunk) = reverse $ convertChunk offset chunk ++ res
+    processOp :: Op -> State OffsetState ()
+    processOp (Loop l) = do
+      let newLoop = Loop (instructions $ offsetInstructionOpt (Program l))
+      finishBatch
+      modify $ \s@OffSt {..} -> s {stOptimized = newLoop : stOptimized}
+    processOp (MRight n) = get >>= \s -> put s {stOffset = stOffset s + n}
+    processOp (Inc n off) = add off (Inc n)
+    processOp (In n off) = add off (In n)
+    processOp (Out n off) = add off (Out n)
+    processOp (Clear off) = add off Clear
+    processOp (Mul factor from to) = add from (\o -> Mul factor o to)
+    processOp (Scan d off) = do
+      OffSt {..} <- get
+      put
+        OffSt
+          { stOffset = 0
+          , stOptimized = stOptimized
+          , stBatch = Scan d (off + stOffset) : stBatch
+          }
+    add :: MemOffset -> (MemOffset -> Op) -> State OffsetState ()
+    add off op =
+      get >>= \s@OffSt {..} -> put s {stBatch = op (off + stOffset) : stBatch}
+    finishBatch :: State OffsetState ()
+    finishBatch = do
+      s@OffSt {..} <- get
+      let batch =
+            if stOffset /= 0
+              then MRight stOffset : stBatch
+              else stBatch
+      put s {stBatch = [], stOffset = 0, stOptimized = batch ++ stOptimized}
+    finishLastBatch :: State OffsetState ()
+    finishLastBatch = do
+      finishBatch
+      modify $ \s@OffSt {..} -> s {stOptimized = reverse stOptimized}
 
 load :: ByteString -> Program Optimized
 load = B.decode
