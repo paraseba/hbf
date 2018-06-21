@@ -75,3 +75,20 @@ scprop_allOptimizationFlagsSameResult (CompFlags opts) =
     expectedMemory =
       memory E.emptyTape GV.//
       zip [0 ..] [fromIntegral (ord '0' + ord 'A') :: Int8, 0, 0, 0, 1, 1, 70]
+
+unit_evalWithSmallMemory :: Assertion
+unit_evalWithSmallMemory = do
+  code <- TIO.readFile "tests/allfeatures.bf"
+  let (Right (program, _)) = C.inMemoryCompile C.defaultCompilerOptions code
+  (finalTape, finalState) <-
+    runStateT
+      (E.evalWith E.defaultVMOptions {E.vmOptsMemoryBytes = bytes} program)
+      (mkMockIOS "0")
+  mockOutputS finalState @?= expectedOutput
+  memory finalTape @?= expectedMemory
+  where
+    bytes = 7 :: Word
+    expectedOutput = "AABFAq"
+    expectedMemory =
+      memory (E.mkTape bytes) GV.//
+      zip [0 ..] [fromIntegral (ord '0' + ord 'A') :: Int8, 0, 0, 0, 1, 1, 70]
