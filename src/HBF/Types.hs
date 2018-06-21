@@ -98,7 +98,7 @@ instance MachineIO IO where
 data MockIO = MockIO
   { machineIn  :: [Int8]
   , machineOut :: [Int8]
-  } deriving (Show, Eq)
+  } deriving (Show, Eq, Generic, NFData)
 
 mkMockIO :: [Int8] -> MockIO
 mkMockIO input = MockIO {machineIn = input, machineOut = []}

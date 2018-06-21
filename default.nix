@@ -20,6 +20,8 @@ mkDerivation {
     tasty-discover tasty-hedgehog tasty-hunit tasty-smallcheck
     temporary text transformers vector
   ];
-  benchmarkHaskellDepends = [ base criterion text transformers ];
+  benchmarkHaskellDepends = [
+    base criterion filepath text transformers
+  ];
   license = stdenv.lib.licenses.gpl3;
 }

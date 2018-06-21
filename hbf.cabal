@@ -154,6 +154,7 @@ benchmark evalbench
                      , hbf
                      , criterion
                      , text
+                     , filepath
                      , transformers
 
   hs-source-dirs:      bench
