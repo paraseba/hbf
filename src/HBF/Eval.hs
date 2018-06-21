@@ -92,7 +92,7 @@ evalWithTape Tape {..} program = do
         Scan Up offset ->
           let start = o2i $ pos + offset
               slice :: v (PrimState m) Int8
-              slice = MV.slice start (MV.length mem - o2i pos) mem
+              slice = MV.slice start (MV.length mem - start) mem
            in do Just idx <- VStream.findIndex (== 0) (MV.mstream slice) -- todo error handling
                  mutableEval ops mem (MemOffset $ start + idx)
         Scan Down offset ->

@@ -170,7 +170,7 @@ offsetInstructionOpt =
         In n off -> (res, accumOffset, In n (off + accumOffset) : chunk)
         Out n off -> (res, accumOffset, Out n (off + accumOffset) : chunk)
         Clear off -> (res, accumOffset, Clear (off + accumOffset) : chunk)
-        Scan d off -> (res, accumOffset, Scan d (off + accumOffset) : chunk)
+        Scan d off -> (res, 0, Scan d (off + accumOffset) : chunk)
         Mul factor from to ->
           (res, accumOffset, Mul factor (from + accumOffset) to : chunk)
     convertChunk accumOffset chunk =
