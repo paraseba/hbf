@@ -194,7 +194,7 @@ main =
       need ["public/.dummy", exebench]
       cmd_ exebench ["-o", "public/bench.html"]
     exebench %> \_ -> do
-      sequence [sourceFiles, testFiles] >>= need . concat
+      sequence [sourceFiles, benchFiles] >>= need . concat
       current <- currentStatuses
       ensureConfigure [Benchmarks] current
       cmd_ "cabal build -j bench:evalbench"
