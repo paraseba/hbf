@@ -1,25 +1,12 @@
-{-# LANGUAGE RecordWildCards #-}
-
 module Hbf where
 
-import           HBF.Compiler       (loadFile)
-import           HBF.Eval           (eval)
-import           System.Environment (getArgs)
-import           System.IO          (hFlush, stdout)
-
-newtype VMArgs = VMArgs
-  { vmargsIR :: FilePath
-  }
-
-parseArgs :: IO VMArgs
-parseArgs = do
-  (inp:_) <- getArgs
-  return VMArgs {vmargsIR = inp}
+import           HBF.Compiler (loadFile)
+import           HBF.Eval     (VMOptions (..), evalWithIO, parse)
+import           System.IO    (hFlush, stdout)
 
 main :: IO ()
 main = do
-  VMArgs {..} <- parseArgs
-  program <- loadFile vmargsIR
-  _ <- eval program
+  vmOpts <- parse
+  program <- loadFile (vmOptsProgramPath vmOpts)
+  _ <- evalWithIO vmOpts program
   hFlush stdout
-  return ()

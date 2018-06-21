@@ -5,39 +5,64 @@
 
 module HBF.Eval
   ( eval
+  , evalWith
+  , evalWithIO
   , evalWithTape
   , TapeType
   , emptyTape
+  , mkTape
+  , unsafeParse
+  , parse
+  , parsePure
+  , defaultVMOptions
+  , VMOptions(..)
   ) where
 
-import           Control.Monad                     (replicateM_)
+import           Control.Monad                     (replicateM_, when)
 import           Control.Monad.Primitive           (PrimMonad, PrimState)
 import           Data.Coerce                       (coerce)
 import           Data.Int                          (Int8)
 import           Data.Maybe                        (fromMaybe)
+import           Data.Monoid                       ((<>))
 import qualified Data.Vector.Fusion.Stream.Monadic as VStream
 import qualified Data.Vector.Generic               as GV
 import qualified Data.Vector.Generic.Mutable       as MV
 import qualified Data.Vector.Unboxed
+import           Options.Applicative
+import           System.Environment                (getArgs)
 
 import           HBF.Types
 
 type TapeType = Tape (Data.Vector.Unboxed.Vector Int8)
 
-{-# SPECIALISE evalWithTape ::
-                 TapeType -> Program Optimized -> IO TapeType #-}
-
-{-# INLINABLE evalWithTape #-}
 {-# INLINABLE eval #-}
 eval :: (PrimMonad m, MachineIO m) => Program Optimized -> m TapeType
-eval = evalWithTape emptyTape
+eval = evalWithTape defaultVMOptions emptyTape
 
+{-# INLINABLE evalWithIO #-}
+evalWithIO :: VMOptions -> Program Optimized -> IO TapeType
+evalWithIO opts program = do
+  tape <- evalWith opts program
+  when (vmOptsDumpMemory opts) $ print tape
+  return tape
+
+{-# INLINABLE evalWith #-}
+evalWith ::
+     (PrimMonad m, MachineIO m) => VMOptions -> Program Optimized -> m TapeType
+evalWith opts program =
+  evalWithTape opts (mkTape (vmOptsMemoryBytes opts)) program
+
+{-# SPECIALISE evalWithTape ::
+                 VMOptions -> TapeType -> Program Optimized -> IO TapeType #-}
+
+{-# INLINABLE evalWithTape #-}
 evalWithTape ::
      forall m. (PrimMonad m, MachineIO m)
-  => TapeType
+  => VMOptions
+  -> TapeType
   -> Program Optimized
   -> m TapeType
-evalWithTape Tape {..} program = do
+evalWithTape _ Tape {..} program = do
   mem <- GV.thaw memory
   finalPointer <- mutableEval (instructions program) mem 0
   finalMemory <- GV.unsafeFreeze mem
@@ -84,10 +109,10 @@ evalWithTape Tape {..} program = do
         Clear offset ->
           MV.unsafeWrite mem (o2i $ pos + offset) 0 *> mutableEval ops mem pos
         Mul factor from to -> do
-          value <- MV.unsafeRead mem (o2i $ pos + from)
+          x <- MV.unsafeRead mem (o2i $ pos + from)
           MV.unsafeModify
             mem
-            (\old -> old + value * factor2i factor)
+            (\old -> old + x * factor2i factor)
             (o2i $ pos + from + to)
           mutableEval ops mem pos
         Scan Up offset ->
@@ -116,3 +141,54 @@ tapeSize = 30000
 
 emptyTape :: TapeType
 emptyTape = Tape {memory = GV.replicate tapeSize 0, pointer = 0}
+
+mkTape :: Word -> TapeType
+mkTape n = Tape {memory = GV.replicate (fromIntegral n) 0, pointer = 0}
+
+data VMOptions = VMOptions
+  { vmOptsMemoryBytes :: Word
+  , vmOptsDumpMemory  :: Bool
+  , vmOptsProgramPath :: FilePath
+  } deriving (Show)
+
+optionsP :: Parser VMOptions
+optionsP =
+  (\mem dump input ->
+     VMOptions
+       { vmOptsMemoryBytes = mem
+       , vmOptsDumpMemory = dump
+       , vmOptsProgramPath = input
+       }) <$>
+  option
+    auto
+    (long "memory" <> short 'm' <> metavar "BYTES" <>
+     value (vmOptsMemoryBytes defaultVMOptions) <>
+     help "Size of the memory [in bytes] used to run the program") <*>
+  switch
+    (long "dump-memory" <> short 'd' <>
+     help "Dump the contents of the memory when the program is finished") <*>
+  argument str (metavar "PROGRAM" <> help "Path to the compiled program")
+
+parserInfo :: ParserInfo VMOptions
+parserInfo =
+  info
+    (optionsP <**> helper)
+    (fullDesc <> progDesc "Run the compiled Brainfuck program in PROGRAM file" <>
+     header "An optimizing Brainfuck compiler and evaluator")
+
+defaultVMOptions :: VMOptions
+defaultVMOptions =
+  VMOptions
+    { vmOptsMemoryBytes = 30000
+    , vmOptsDumpMemory = False
+    , vmOptsProgramPath = ""
+    }
+
+parsePure :: [String] -> ParserResult VMOptions
+parsePure = execParserPure defaultPrefs parserInfo
+
+unsafeParse :: [String] -> IO VMOptions
+unsafeParse = handleParseResult . parsePure
+
+parse :: IO VMOptions
+parse = getArgs >>= unsafeParse
