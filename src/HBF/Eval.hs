@@ -7,6 +7,7 @@ module HBF.Eval
   ( eval
   , evalWithTape
   , TapeType
+  , emptyTape
   ) where
 
 import           Control.Monad                     (replicateM_)

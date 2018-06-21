@@ -1,16 +1,21 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE FlexibleInstances     #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE OverloadedStrings     #-}
 
+-- needed for smallcheck
 module Helper where
 
-import           Data.Coerce         (coerce)
-import           Data.Int            (Int8)
-import           Data.Semigroup      ((<>))
-import           Data.Text.Lazy      (Text, pack)
-import qualified Data.Vector.Unboxed as Vector
-import           Hedgehog            (Gen)
-import qualified Hedgehog.Gen        as Gen
-import qualified Hedgehog.Range      as Range
+import           Data.Coerce            (coerce)
+import           Data.Int               (Int8)
+import           Data.Semigroup         ((<>))
+import           Data.Text.Lazy         (Text, pack)
+import qualified Data.Vector.Unboxed    as Vector
+import           Hedgehog               (Gen)
+import qualified Hedgehog.Gen           as Gen
+import qualified Hedgehog.Range         as Range
+import           Test.SmallCheck.Series
 
+import           HBF.Compiler           (CompilerOptions (..))
 import           HBF.Parser
 import           HBF.Types
 
@@ -84,3 +89,29 @@ makeMul muls =
 
 listTape :: Tape (Vector.Vector Int8) -> Tape [Int8]
 listTape t = Tape {pointer = pointer t, memory = Vector.toList (memory t)}
+
+newtype CompFlags =
+  CompFlags CompilerOptions
+  deriving (Show)
+
+instance Monad m => Serial m CompFlags where
+  series =
+    cons5
+      (\a b c d e ->
+         CompFlags
+           CompilerOptions
+             { cOptsOut = Nothing
+             , cOptsFusionOptimization = a
+             , cOptsClearLoopOptimization = b
+             , cOptsMulOptimization = c
+             , cOptsScanOptimization = d
+             , cOptsOffsetInstructionsOptimization = e
+             , cOptsVerbose = False
+             , cOptsSource = ""
+             })
+
+cons5 ::
+     (Serial m a5, Serial m a4, Serial m a3, Serial m a2, Serial m a1)
+  => (a1 -> a2 -> a3 -> a4 -> a5 -> a6)
+  -> Series m a6
+cons5 f = decDepth $ f <$> series <~> series <~> series <~> series <~> series

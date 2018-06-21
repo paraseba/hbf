@@ -123,8 +123,10 @@ test-suite test
                      , HUnit
                      , hedgehog
                      , hedgehog-checkers
+                     , smallcheck
                      , tasty
                      , tasty-hedgehog
+                     , tasty-smallcheck
                      , tasty-hunit
                      , tasty-discover
 

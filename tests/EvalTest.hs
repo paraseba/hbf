@@ -1,8 +1,12 @@
 module EvalTest where
 
 import           Control.Monad.Trans.State (runStateT)
+import           Data.Char                 (ord)
+import           Data.Int                  (Int8)
 import qualified Data.Text.Lazy.IO         as TIO
+import qualified Data.Vector.Generic       as GV
 import           Test.HUnit
+import           Test.SmallCheck
 
 import qualified HBF.Compiler              as C
 import qualified HBF.Eval                  as E
@@ -54,5 +58,20 @@ unit_evalScanLOnZero = do
   where
     program -- evaluating should give [42,0,42,0,...]
      = Program [Inc 42 0, MRight 2, Inc 42 0, MRight (-1), Scan Down 0]
+
 -- todo: implement a property test starting with arbitrary memory
 -- and evaluating ScanR and ScanL
+scprop_allOptimizationFlagsSameResult :: CompFlags -> Property IO
+scprop_allOptimizationFlagsSameResult (CompFlags opts) =
+  monadic $ do
+    code <- TIO.readFile "tests/allfeatures.bf"
+    let (Right (program, _)) = C.inMemoryCompile opts code
+    (finalTape, finalState) <- exec program (mkMockIOS "0")
+    pure $
+      mockOutputS finalState == expectedOutput &&
+      memory finalTape == expectedMemory
+  where
+    expectedOutput = "AABFAq"
+    expectedMemory =
+      memory E.emptyTape GV.//
+      zip [0 ..] [fromIntegral (ord '0' + ord 'A') :: Int8, 0, 0, 0, 1, 1, 70]
