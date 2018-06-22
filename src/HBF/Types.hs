@@ -19,19 +19,37 @@ import           Data.Semigroup                 (Semigroup (..))
 import           GHC.Generics                   (Generic)
 import           System.IO                      (hFlush, stdout)
 
+-- | Operations or instructions in the Brainfuck virtual machine.
+--
+-- Some of these operations are \"native\" to Brainfuck and others are the result of optimization during compilation.
+-- The compiler generates these types of instructions and the virtual machine can execute them.
+--
+-- In all these instructions the 'MemOffset' represents a shift relative to the current position of the pointer.
+-- The operation will refer and apply its action to this shifted position.
 data Op
+  -- | Increment by the amount specified by the @Int@
   = Inc {-# UNPACK #-}!Int
         {-# UNPACK #-}!MemOffset
+  -- | Move the current pointer by the specified amount
   | Move {-# UNPACK #-}!MemOffset
+  -- | Repeatedly read a byte into the machine and write the last one read to the shifted position.
+  -- @n@ is usually 1 in real programs, but not always. Where the byte is read from will depend on the 'MachineIO' impleentation.
   | In {-# UNPACK #-}!Int
        {-# UNPACK #-}!MemOffset
+  -- | Repeatedly write the byte in the shifted position. Where the byte is written will depend on the 'MachineIO' impleentation.
   | Out {-# UNPACK #-}!Int
         {-# UNPACK #-}!MemOffset
+  -- | Native Brainfuck looping instruction.
   | Loop ![Op]
+  -- | Optimized instruction. Set the shifted position to zero. In Brainfuck this is usually written as @[-]@
   | Clear {-# UNPACK #-}!MemOffset
+  -- | Optimized instruction. Multiply by the factor the byte in the first @MemOffset@, writting to the second one.
+  -- Second @MemOffset@ is relative to the first one. In brainfuck this is usually written as [->+<] and similar
+  -- expressions.
   | Mul {-# UNPACK #-}!MulFactor
         {-# UNPACK #-}!MemOffset
         {-# UNPACK #-}!MemOffset
+  -- | Find the nearest zero in the given direction, starting at the offset position.
   | Scan !Direction
          {-# UNPACK #-}!MemOffset
   deriving (Show, Eq, Generic, Binary, NFData)
