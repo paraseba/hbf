@@ -20,8 +20,8 @@ unit_canFactorNumbers = do
 
 unit_evalScanR :: Assertion
 unit_evalScanR = do
-  (tape, _) <- execProgramS program ""
-  let (Tape mem index) = listTape tape
+  (machine, _) <- execProgramS program ""
+  let (Machine mem index) = listMachine machine
   (index, take 6 mem) @?= (4, [42, 42, 42, 42, 17, 0])
   where
     program -- evaluating should give [42,42,42,42,17,0,...]
@@ -29,8 +29,8 @@ unit_evalScanR = do
 
 unit_evalScanL :: Assertion
 unit_evalScanL = do
-  (tape, _) <- execProgramS program ""
-  let (Tape mem index) = listTape tape
+  (machine, _) <- execProgramS program ""
+  let (Machine mem index) = listMachine machine
   (index, take 6 mem) @?= (1, [0, 17, 42, 42, 42, 0])
   where
     program -- evaluating should give [0,17,42,42,42,0,...]
@@ -38,8 +38,8 @@ unit_evalScanL = do
 
 unit_evalScanROnZero :: Assertion
 unit_evalScanROnZero = do
-  (tape, _) <- execProgramS program ""
-  let (Tape mem index) = listTape tape
+  (machine, _) <- execProgramS program ""
+  let (Machine mem index) = listMachine machine
   (index, take 4 mem) @?= (1, [42, 0, 42, 0])
   where
     program -- evaluating should give [42,0,42,0,...]
@@ -47,8 +47,8 @@ unit_evalScanROnZero = do
 
 unit_evalScanLOnZero :: Assertion
 unit_evalScanLOnZero = do
-  (tape, _) <- execProgramS program ""
-  let (Tape mem index) = listTape tape
+  (machine, _) <- execProgramS program ""
+  let (Machine mem index) = listMachine machine
   (index, take 4 mem) @?= (1, [42, 0, 42, 0])
   where
     program -- evaluating should give [42,0,42,0,...]
@@ -61,29 +61,29 @@ scprop_allOptimizationFlagsSameResult (CompFlags opts) =
   monadic $ do
     code <- TIO.readFile "tests/allfeatures.bf"
     let (Right (program, _)) = C.inMemoryCompile opts code
-    (finalTape, finalState) <- execProgram program (mkMockIOS "0")
+    (finalMachine, finalState) <- execProgram program (mkMockIOS "0")
     pure $
       mockOutputS finalState == expectedOutput &&
-      memory finalTape == expectedMemory
+      memory finalMachine == expectedMemory
   where
     expectedOutput = "AABFAq"
     expectedMemory =
-      memory E.emptyTape GV.//
+      memory E.emptyMachine GV.//
       zip [0 ..] [fromIntegral (ord '0' + ord 'A') :: Int8, 0, 0, 0, 1, 1, 70]
 
 unit_evalWithSmallMemory :: Assertion
 unit_evalWithSmallMemory = do
   code <- TIO.readFile "tests/allfeatures.bf"
   let (Right (program, _)) = C.inMemoryCompile C.defaultCompilerOptions code
-  (finalTape, finalState) <-
+  (finalMachine, finalState) <-
     runStateT
       (E.evalWith E.defaultVMOptions {E.vmOptsMemoryBytes = bytes} program)
       (mkMockIOS "0")
   mockOutputS finalState @?= expectedOutput
-  memory finalTape @?= expectedMemory
+  memory finalMachine @?= expectedMemory
   where
     bytes = 7 :: Word
     expectedOutput = "AABFAq"
     expectedMemory =
-      memory (E.mkTape bytes) GV.//
+      memory (E.mkMachine bytes) GV.//
       zip [0 ..] [fromIntegral (ord '0' + ord 'A') :: Int8, 0, 0, 0, 1, 1, 70]

@@ -20,7 +20,7 @@ import           Test.SmallCheck.Series
 import           HBF.Compiler              (CompilerOptions (..),
                                             defaultCompilerOptions,
                                             inMemoryCompile)
-import           HBF.Eval                  (TapeType, eval)
+import           HBF.Eval                  (MachineType, eval)
 import           HBF.Parser
 import           HBF.Types
 
@@ -92,8 +92,8 @@ makeMul muls =
     mkMul (MulFactor fact, MemOffset off) =
       replicate off (Move 1) ++ replicate fact (Inc 1 0)
 
-listTape :: Tape (Vector.Vector Int8) -> Tape [Int8]
-listTape t = t {memory = Vector.toList (memory t)}
+listMachine :: Machine (Vector.Vector Int8) -> Machine [Int8]
+listMachine t = t {memory = Vector.toList (memory t)}
 
 newtype CompFlags =
   CompFlags CompilerOptions
@@ -121,19 +121,19 @@ cons5 ::
   -> Series m a6
 cons5 f = decDepth $ f <$> series <~> series <~> series <~> series <~> series
 
-execProgram :: Program Optimized -> MockIO -> IO (TapeType, MockIO)
+execProgram :: Program Optimized -> MockIO -> IO (MachineType, MockIO)
 execProgram program = runStateT (eval program)
 
-execProgramS :: Program Optimized -> String -> IO (TapeType, MockIO)
+execProgramS :: Program Optimized -> String -> IO (MachineType, MockIO)
 execProgramS program input = runStateT (eval program) (mkMockIOS input)
 
-execCodeMock :: Text -> String -> IO (TapeType, MockIO)
+execCodeMock :: Text -> String -> IO (MachineType, MockIO)
 execCodeMock code input = execProgram program (mkMockIOS input)
   where
     (Right (program, _)) = inMemoryCompile defaultCompilerOptions code
 
-execCode :: Text -> String -> IO (TapeType, String)
+execCode :: Text -> String -> IO (MachineType, String)
 execCode code input = fmap mockOutputS <$> execCodeMock code input
 
-execFile :: FilePath -> String -> IO (TapeType, String)
+execFile :: FilePath -> String -> IO (MachineType, String)
 execFile p input = TIO.readFile p >>= \code -> execCode code input

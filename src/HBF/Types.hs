@@ -118,7 +118,7 @@ instance Monoid (Program o) where
 
 -- * Runtime State
 -- | The state of a Brainfuck virtual machine.
-data Tape v = Tape
+data Machine v = Machine
   { memory  :: v -- ^ The full memory of the machine. This will be a 'Data.Vector.Unboxed.Vector' or a List.
   , pointer :: MemOffset -- ^ The current execution pointer, information is written and read at this position.
   } deriving (Show, Eq)

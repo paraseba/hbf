@@ -7,10 +7,10 @@ module HBF.Eval
   ( eval
   , evalWith
   , evalWithIO
-  , evalWithTape
-  , TapeType
-  , emptyTape
-  , mkTape
+  , evalWithMachine
+  , MachineType
+  , emptyMachine
+  , mkMachine
   , unsafeParse
   , parse
   , parsePure
@@ -33,40 +33,43 @@ import           System.Environment                (getArgs)
 
 import           HBF.Types
 
-type TapeType = Tape (Data.Vector.Unboxed.Vector Int8)
+type MachineType = Machine (Data.Vector.Unboxed.Vector Int8)
 
 {-# INLINABLE eval #-}
-eval :: (PrimMonad m, MachineIO m) => Program Optimized -> m TapeType
-eval = evalWithTape defaultVMOptions emptyTape
+eval :: (PrimMonad m, MachineIO m) => Program Optimized -> m MachineType
+eval = evalWithMachine defaultVMOptions emptyMachine
 
 {-# INLINABLE evalWithIO #-}
-evalWithIO :: VMOptions -> Program Optimized -> IO TapeType
+evalWithIO :: VMOptions -> Program Optimized -> IO MachineType
 evalWithIO opts program = do
-  tape <- evalWith opts program
-  when (vmOptsDumpMemory opts) $ print tape
-  return tape
+  machine <- evalWith opts program
+  when (vmOptsDumpMemory opts) $ print machine
+  return machine
 
 {-# INLINABLE evalWith #-}
 evalWith ::
-     (PrimMonad m, MachineIO m) => VMOptions -> Program Optimized -> m TapeType
+     (PrimMonad m, MachineIO m)
+  => VMOptions
+  -> Program Optimized
+  -> m MachineType
 evalWith opts program =
-  evalWithTape opts (mkTape (vmOptsMemoryBytes opts)) program
+  evalWithMachine opts (mkMachine (vmOptsMemoryBytes opts)) program
 
-{-# SPECIALISE evalWithTape ::
-                 VMOptions -> TapeType -> Program Optimized -> IO TapeType #-}
+{-# SPECIALISE evalWithMachine ::
+                 VMOptions -> MachineType -> Program Optimized -> IO MachineType #-}
 
-{-# INLINABLE evalWithTape #-}
-evalWithTape ::
+{-# INLINABLE evalWithMachine #-}
+evalWithMachine ::
      forall m. (PrimMonad m, MachineIO m)
   => VMOptions
-  -> TapeType
+  -> MachineType
   -> Program Optimized
-  -> m TapeType
-evalWithTape _ Tape {..} program = do
+  -> m MachineType
+evalWithMachine _ Machine {..} program = do
   mem <- GV.thaw memory
   finalPointer <- mutableEval (instructions program) mem 0
   finalMemory <- GV.unsafeFreeze mem
-  return Tape {memory = finalMemory, pointer = finalPointer}
+  return Machine {memory = finalMemory, pointer = finalPointer}
   -- For some reason making this function a top level binding brings down performance by compiling
   -- without native arithmetic. Even if we add SPECIALIZE pragma
   -- Maybe this is the reason why we also need -fno-full-laziness
@@ -136,14 +139,14 @@ factor2i :: MulFactor -> Int8
 factor2i = fromIntegral . (coerce :: MulFactor -> Int)
 
 {-# INLINE factor2i #-}
-tapeSize :: Int
-tapeSize = 30000
+machineSize :: Int
+machineSize = 30000
 
-emptyTape :: TapeType
-emptyTape = Tape {memory = GV.replicate tapeSize 0, pointer = 0}
+emptyMachine :: MachineType
+emptyMachine = Machine {memory = GV.replicate machineSize 0, pointer = 0}
 
-mkTape :: Word -> TapeType
-mkTape n = Tape {memory = GV.replicate (fromIntegral n) 0, pointer = 0}
+mkMachine :: Word -> MachineType
+mkMachine n = Machine {memory = GV.replicate (fromIntegral n) 0, pointer = 0}
 
 data VMOptions = VMOptions
   { vmOptsMemoryBytes :: Word
