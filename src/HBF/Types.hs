@@ -101,6 +101,9 @@ newtype Program opt = Program
 
 -- | Return the full list of instructions in a program, by unrolling 'Loop' instructions
 -- into the list.
+--
+-- >>> flattened $ Program [Inc 1 0, Loop [Move 1, Scan Up 0]]
+-- [Inc 1 0,Move 1,Scan Up 0]
 flattened :: Program o -> [Op]
 flattened p = [atom | op <- instructions p, atom <- atoms op]
   where
