@@ -106,7 +106,7 @@ main =
     shakeOptions
       { shakeFiles = "_shake"
       , shakeThreads = 0
-      , shakeLint = Just LintBasic
+      --, shakeLint = Just LintBasic
       , shakeColor = True
       } $ do
     want ["build"]
