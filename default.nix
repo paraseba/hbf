@@ -1,5 +1,5 @@
 { mkDerivation, base, binary, bytestring, criterion, deepseq
-, filepath, hedgehog, hedgehog-checkers, HUnit
+, doctest, filepath, hedgehog, hedgehog-checkers, HUnit
 , optparse-applicative, parsec, primitive, smallcheck, stdenv
 , tasty, tasty-discover, tasty-hedgehog, tasty-hunit
 , tasty-smallcheck, temporary, text, transformers, vector
@@ -16,7 +16,7 @@ mkDerivation {
   ];
   executableHaskellDepends = [ base ];
   testHaskellDepends = [
-    base hedgehog hedgehog-checkers HUnit smallcheck tasty
+    base doctest hedgehog hedgehog-checkers HUnit smallcheck tasty
     tasty-discover tasty-hedgehog tasty-hunit tasty-smallcheck
     temporary text transformers vector
   ];
