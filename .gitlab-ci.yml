@@ -7,7 +7,7 @@ stages:
 test:
   stage: test
 
-  image: nixos/nix:latest
+  image: nixorg/nix:latest
 
   before_script:
     - nix-channel --add https://nixos.org/channels/nixpkgs-unstable nixpkgs
