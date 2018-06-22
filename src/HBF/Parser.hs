@@ -32,8 +32,8 @@ garbage = noneOf bfTokens
 simpleOp :: Parser Op
 simpleOp = build <$> oneOf bfSimpleTokens
   where
-    build '>' = MRight 1
-    build '<' = MRight (-1)
+    build '>' = Move 1
+    build '<' = Move (-1)
     build '+' = Inc 1 0
     build '-' = Inc (-1) 0
     build '.' = Out 1 0

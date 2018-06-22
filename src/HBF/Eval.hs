@@ -83,7 +83,7 @@ evalWithTape _ Tape {..} program = do
         Inc n memOffset ->
           MV.unsafeModify mem (+ fromIntegral n) (o2i $ pos + memOffset) *>
           mutableEval ops mem pos
-        MRight n -> mutableEval ops mem (pos + coerce n)
+        Move n -> mutableEval ops mem (pos + coerce n)
         Out times memOffset -> do
           val <- MV.unsafeRead mem (o2i $ pos + memOffset)
           replicateM_ times (putByte val)

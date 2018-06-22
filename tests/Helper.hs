@@ -58,25 +58,25 @@ programGen =
       Gen.frequency
         [ (100, pure [Inc 1 0])
         , (50, pure [Inc (-1) 0])
-        , (80, pure [MRight (-1)])
-        , (70, pure [MRight 1])
+        , (80, pure [Move (-1)])
+        , (70, pure [Move 1])
         , (5, pure [Out 1 0])
         , (2, pure [In 1 0])
         , (10, (\b -> b ++ b) <$> basic) --fusable
-        , (3, pure [Loop [MRight (-1)]]) --scanL
-        , (2, pure [Loop [MRight 1]]) --scanR
+        , (3, pure [Loop [Move (-1)]]) --scanL
+        , (2, pure [Loop [Move 1]]) --scanR
         , (1, pure [Loop [Inc (-1) 0]]) --clear loop
         , ( 1
           , pure
               [ Inc (-1) 0
-              , MRight 1
+              , Move 1
               , Inc 1 0
               , Inc 1 0
-              , MRight 1
-              , MRight 1
+              , Move 1
+              , Move 1
               , Inc (-1) 0
-              , MRight (-1)
-              , MRight (-1)
+              , Move (-1)
+              , Move (-1)
               ]) --mul loop --fixme use makeMul
         ]
     weights [nonrec] = nonrec
@@ -87,10 +87,10 @@ makeMul :: [(MulFactor, MemOffset)] -> Op
 makeMul muls =
   Loop $
   (Inc (-1) 0 : concatMap mkMul muls) ++
-  replicate (coerce $ sum $ map snd muls) (MRight (-1))
+  replicate (coerce $ sum $ map snd muls) (Move (-1))
   where
     mkMul (MulFactor fact, MemOffset off) =
-      replicate off (MRight 1) ++ replicate fact (Inc 1 0)
+      replicate off (Move 1) ++ replicate fact (Inc 1 0)
 
 listTape :: Tape (Vector.Vector Int8) -> Tape [Int8]
 listTape t = t {memory = Vector.toList (memory t)}

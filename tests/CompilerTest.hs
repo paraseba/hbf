@@ -18,8 +18,8 @@ unit_fusionOptimization = fusionOpt (Program p) @?= Program expected
     p =
       [ Inc 2 1
       , Inc (-1) 1
-      , MRight 3
-      , MRight (-1)
+      , Move 3
+      , Move (-1)
       , Inc 1 0
       , In 1 0
       , In 2 0
@@ -33,8 +33,8 @@ unit_fusionOptimization = fusionOpt (Program p) @?= Program expected
       , Loop
           [ Inc 1 0
           , Inc 2 0
-          , Loop [MRight 1, MRight 2, Clear 0, Clear 0, Clear 1, Clear 2]
-          , Loop [MRight 1, MRight (-1)] -- should eliminate this whole loop
+          , Loop [Move 1, Move 2, Clear 0, Clear 0, Clear 1, Clear 2]
+          , Loop [Move 1, Move (-1)] -- should eliminate this whole loop
           , Scan Up 0
           , Scan Up 0
           , Scan Down 3
@@ -47,7 +47,7 @@ unit_fusionOptimization = fusionOpt (Program p) @?= Program expected
       ]
     expected =
       [ Inc 1 1
-      , MRight 2
+      , Move 2
       , Inc 1 0
       , In 3 0
       , Out 8 0
@@ -55,7 +55,7 @@ unit_fusionOptimization = fusionOpt (Program p) @?= Program expected
       , Out 1 2
       , Loop
           [ Inc 3 0
-          , Loop [MRight 3, Clear 0, Clear 1, Clear 2]
+          , Loop [Move 3, Clear 0, Clear 1, Clear 2]
           , Scan Up 0
           , Scan Down 3
           , Scan Up 0
@@ -83,7 +83,7 @@ fullyFused p = all (uncurry fused) (zip ops (tail ops))
     ops = instructions p
     fused (Inc _ n) (Inc _ m)
       | n == m = False
-    fused (MRight _) (MRight _) = False
+    fused (Move _) (Move _) = False
     fused (In _ n) (In _ m)
       | n == m = False
     fused (Out _ n) (Out _ m)
@@ -97,9 +97,8 @@ fullyFused p = all (uncurry fused) (zip ops (tail ops))
 unit_fullyFusedTest :: Assertion
 unit_fullyFusedTest =
   not (fullyFused $ Program [Inc 1 1, Inc 4 1]) &&
-  not
-    (fullyFused $ Program [Inc 1 0, Loop [Inc 1 1, Loop [MRight 1, MRight 2]]]) &&
-  fullyFused (Program [Inc 1 0, MRight 2]) @=? True
+  not (fullyFused $ Program [Inc 1 0, Loop [Inc 1 1, Loop [Move 1, Move 2]]]) &&
+  fullyFused (Program [Inc 1 0, Move 2]) @=? True
 
 hprop_fusionDoesntLeaveAnythingToBeFused :: Property
 hprop_fusionDoesntLeaveAnythingToBeFused =
@@ -109,7 +108,7 @@ hprop_fusionDoesntLeaveAnythingToBeFused =
     H.assert $ all noNoOp (flattened optimized) && fullyFused optimized
   where
     noNoOp (Inc n _)    = n /= 0
-    noNoOp (MRight n)   = n /= 0
+    noNoOp (Move n)     = n /= 0
     noNoOp (In n _)     = n /= 0
     noNoOp (Out n _)    = n /= 0
     noNoOp (Clear _)    = True
@@ -130,14 +129,14 @@ unit_clearOptimization = clearOpt (Program p) @?= Program expected
       , Loop
           [ Inc 1 0
           , Loop [Inc (-1) 0]
-          , Loop [Loop [Inc (-1) 0], MRight 3, Loop [Inc (-1) 0]]
+          , Loop [Loop [Inc (-1) 0], Move 3, Loop [Inc (-1) 0]]
           ]
       ]
     expected =
       [ Inc 2 0
       , Inc (-1) 0
       , Clear 0
-      , Loop [Inc 1 0, Clear 0, Loop [Clear 0, MRight 3, Clear 0]]
+      , Loop [Inc 1 0, Clear 0, Loop [Clear 0, Move 3, Clear 0]]
       ]
 
 unit_mulOptimization :: Assertion
@@ -148,7 +147,7 @@ unit_mulOptimization = mulOpt (Program p) @?= Program expected
       , Inc (-1) 0
       , makeMul [(1, 2)]
       , Loop [Inc (-1) 0, makeMul [(2, 4), (4, 5)], Inc 1 0]
-      , Loop [Inc (-1) 0, MRight 1, Inc 1 0, MRight (-1), Inc 1 0] {- this extra part breaks the multiplication loop -}
+      , Loop [Inc (-1) 0, Move 1, Inc 1 0, Move (-1), Inc 1 0] {- this extra part breaks the multiplication loop -}
          -- this tests missing eof
       ]
     expected =
@@ -157,7 +156,7 @@ unit_mulOptimization = mulOpt (Program p) @?= Program expected
       , Mul 1 0 2
       , Clear 0
       , Loop [Inc (-1) 0, Mul 2 0 4, Mul 4 0 9, Clear 0, Inc 1 0]
-      , Loop [Inc (-1) 0, MRight 1, Inc 1 0, MRight (-1), Inc 1 0]
+      , Loop [Inc (-1) 0, Move 1, Inc 1 0, Move (-1), Inc 1 0]
       ]
 
 unit_scanOptimization :: Assertion
@@ -166,14 +165,14 @@ unit_scanOptimization = scanOpt (Program p) @?= Program expected
     p =
       [ Inc 2 0
       , Inc (-1) 0
-      , Loop [MRight (-1)]
-      , Loop [Inc (-1) 0, Loop [MRight 1], Loop [MRight 2], Inc 1 0]
+      , Loop [Move (-1)]
+      , Loop [Inc (-1) 0, Loop [Move 1], Loop [Move 2], Inc 1 0]
       ]
     expected =
       [ Inc 2 0
       , Inc (-1) 0
       , Scan Down 0
-      , Loop [Inc (-1) 0, Scan Up 0, Loop [MRight 2], Inc 1 0]
+      , Loop [Inc (-1) 0, Scan Up 0, Loop [Move 2], Inc 1 0]
       ]
 
 unit_offsetInstructionsOptimization :: Assertion
@@ -182,16 +181,16 @@ unit_offsetInstructionsOptimization =
   where
     p =
       [ Inc 2 0
-      , MRight 1
+      , Move 1
       , Inc (-1) 0
-      , MRight 2
+      , Move 2
       , Mul 3 0 2
-      , Loop [MRight (-1)]
+      , Loop [Move (-1)]
       , Loop
           [ Inc (-1) 0
-          , MRight (-1)
+          , Move (-1)
           , In 1 0
-          , Loop [MRight 2, Inc 3 0, MRight (-1)]
+          , Loop [Move 2, Inc 3 0, Move (-1)]
           , Inc 1 0
           ]
       ]
@@ -199,13 +198,7 @@ unit_offsetInstructionsOptimization =
       [ Inc 2 0
       , Inc (-1) 1
       , Mul 3 3 2
-      , MRight 3
-      , Loop [MRight (-1)]
-      , Loop
-          [ Inc (-1) 0
-          , In 1 (-1)
-          , MRight (-1)
-          , Loop [Inc 3 2, MRight 1]
-          , Inc 1 0
-          ]
+      , Move 3
+      , Loop [Move (-1)]
+      , Loop [Inc (-1) 0, In 1 (-1), Move (-1), Loop [Inc 3 2, Move 1], Inc 1 0]
       ]

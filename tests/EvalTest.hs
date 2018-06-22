@@ -34,7 +34,7 @@ unit_evalScanL = do
   (index, take 6 mem) @?= (1, [0, 17, 42, 42, 42, 0])
   where
     program -- evaluating should give [0,17,42,42,42,0,...]
-     = Program [MRight 2, Inc 42 0, Mul 1 0 1, Mul 1 0 2, Scan Down 0, Inc 17 0]
+     = Program [Move 2, Inc 42 0, Mul 1 0 1, Mul 1 0 2, Scan Down 0, Inc 17 0]
 
 unit_evalScanROnZero :: Assertion
 unit_evalScanROnZero = do
@@ -43,7 +43,7 @@ unit_evalScanROnZero = do
   (index, take 4 mem) @?= (1, [42, 0, 42, 0])
   where
     program -- evaluating should give [42,0,42,0,...]
-     = Program [Inc 42 0, MRight 2, Inc 42 0, MRight (-1), Scan Up 0]
+     = Program [Inc 42 0, Move 2, Inc 42 0, Move (-1), Scan Up 0]
 
 unit_evalScanLOnZero :: Assertion
 unit_evalScanLOnZero = do
@@ -52,7 +52,7 @@ unit_evalScanLOnZero = do
   (index, take 4 mem) @?= (1, [42, 0, 42, 0])
   where
     program -- evaluating should give [42,0,42,0,...]
-     = Program [Inc 42 0, MRight 2, Inc 42 0, MRight (-1), Scan Down 0]
+     = Program [Inc 42 0, Move 2, Inc 42 0, Move (-1), Scan Down 0]
 
 -- todo: implement a property test starting with arbitrary memory
 -- and evaluating ScanR and ScanL

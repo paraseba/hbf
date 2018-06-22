@@ -136,15 +136,11 @@ main =
     phony "cleancabal" $ do
       putNormal "Cabal cleaning"
       cmd_ "cabal clean"
-
     phony "cleanshake" $ do
       putNormal "Shake cleaning"
       buildDir <- shakeFiles <$> getShakeOptions
       removeFilesAfter buildDir ["//*"]
-
-    phony "clean" $
-      need ["cleancabal", "cleanshake"]
-
+    phony "clean" $ need ["cleancabal", "cleanshake"]
     let status = getConfigureStatus . ConfigureStatusQ
         currentStatuses = do
           t <- status Tests

@@ -92,7 +92,7 @@ instance Semigroup FusedProgram where
       join :: Op -> Op -> [Op]
       join (Inc a n) (Inc b m)
         | n == m = ifNotZero (flip Inc n) $ a + b
-      join (MRight a) (MRight b) = ifNotZero MRight $ a + b
+      join (Move a) (Move b) = ifNotZero Move $ a + b
       join (In a n) (In b m)
         | n == m = ifNotZero (flip In n) $ a + b
       join (Out a n) (Out b m)
@@ -151,9 +151,9 @@ scanOpt :: Program Optimized -> Program Optimized
 scanOpt = liftLoop onLoops
   where
     onLoops :: [Op] -> Maybe [Op]
-    onLoops [MRight 1]    = Just [Scan Up 0]
-    onLoops [MRight (-1)] = Just [Scan Down 0]
-    onLoops _             = Nothing
+    onLoops [Move 1]    = Just [Scan Up 0]
+    onLoops [Move (-1)] = Just [Scan Down 0]
+    onLoops _           = Nothing
 
 data OffsetState = OffSt
   { stOptimized :: [Op]
@@ -176,7 +176,7 @@ offsetInstructionOpt =
       let newLoop = Loop (instructions $ offsetInstructionOpt (Program l))
       finishBatch
       modify $ \s@OffSt {..} -> s {stOptimized = newLoop : stOptimized}
-    processOp (MRight n) = get >>= \s -> put s {stOffset = stOffset s + n}
+    processOp (Move n) = get >>= \s -> put s {stOffset = stOffset s + n}
     processOp (Inc n off) = add off (Inc n)
     processOp (In n off) = add off (In n)
     processOp (Out n off) = add off (Out n)
@@ -198,7 +198,7 @@ offsetInstructionOpt =
       s@OffSt {..} <- get
       let batch =
             if stOffset /= 0
-              then MRight stOffset : stBatch
+              then Move stOffset : stBatch
               else stBatch
       put s {stBatch = [], stOffset = 0, stOptimized = batch ++ stOptimized}
     finishLastBatch :: State OffsetState ()
@@ -261,7 +261,7 @@ optionsP =
   switch
     (long "offset" <>
      help
-       "Reenable offset instructions optimization (turn >>+>->> into Inc 1 2, Inc (-1) 1, MRight 1, MRight 1, MRight 1, MRight 1, MRight 1, operation)") <*>
+       "Reenable offset instructions optimization (turn >>+>->> into Inc 1 2, Inc (-1) 1, Move 1, Move 1, Move 1, Move 1, Move 1, operation)") <*>
   switch
     (long "verbose" <> short 'v' <> help "Output more debugging information") <*>
   argument str (metavar "SRC" <> help "Input source code file")
@@ -324,13 +324,13 @@ satisfy' predicate = Parsec.token showTok posFromTok testTok
 mrightP :: ProgramParser MemOffset
 mrightP =
   satisfy' isRight <&> \case
-    MRight n -> n
+    Move n -> n
     _ -> undefined
 
 mleftP :: ProgramParser MemOffset
 mleftP =
   satisfy' isLeft <&> \case
-    MRight n -> (negate n)
+    Move n -> (negate n)
     _ -> undefined
 
 plusP :: ProgramParser Int
@@ -349,12 +349,12 @@ summedP :: Num n => ProgramParser n -> ProgramParser n
 summedP = fmap sum . Parsec.many1
 
 isRight :: Op -> Bool
-isRight (MRight n)
+isRight (Move n)
   | n > 0 = True
 isRight _ = False
 
 isLeft :: Op -> Bool
-isLeft (MRight n)
+isLeft (Move n)
   | n < 0 = True
 isLeft _ = False
 

@@ -22,7 +22,7 @@ import           System.IO                      (hFlush, stdout)
 data Op
   = Inc {-# UNPACK #-}!Int
         {-# UNPACK #-}!MemOffset
-  | MRight {-# UNPACK #-}!MemOffset
+  | Move {-# UNPACK #-}!MemOffset
   | In {-# UNPACK #-}!Int
        {-# UNPACK #-}!MemOffset
   | Out {-# UNPACK #-}!Int
