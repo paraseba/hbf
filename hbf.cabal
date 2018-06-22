@@ -1,20 +1,31 @@
 name:                hbf
 version:             0.1.0.0
--- synopsis:
--- description:
+cabal-version:       >=1.10
+build-type:          Simple
 license:             GPL-3
 license-file:        LICENSE
 author:              Sebastian Galkin
 maintainer:          paraseba@gmail.com
--- copyright:
+copyright:           Sebastian Galkin, 2018
+
+synopsis:            An optimizing Brainfuck compiler and evaluator
+description:
+                     hbf is a compiler and executor of Brainfuck programs. It provides
+                     two executables: @hbfc@ the Brainfuck compiler, and @hbf@ the virtual
+                     machine that executes compiled Brainfuck programs.
+homepage:            https://gitlab.com/paraseba/hbf
+bug-reports:         https://gitlab.com/paraseba/hbf/issues
+source-repository head
+    type: git
+    location: git@gitlab.com:paraseba/hbf.git
 category:            Language
-build-type:          Simple
 
 extra-source-files:
-                   - ChangeLog.md
-                   - tests/*.bf
+                     - README.md
+                     - tests/allfeatures.bf
+                     - tests/factor.bf
+                     - tests/squares.bf
 
-cabal-version:       >=1.10
 
 flag dump
   -- dump files will be available after cabal build in dist/build/src/HBF/
