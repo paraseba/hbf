@@ -5,7 +5,6 @@ License     : GPL-3
 
 Parsing 'Text' into 'Program' 'Unparsed'
 -}
-
 module HBF.Parser
   ( module HBF.Parser
   -- * Reexport from "Text.Parsec"
@@ -25,7 +24,6 @@ import           HBF.Types
 -- >>> :set -XOverloadedStrings
 -- >>> import Data.Either
 -- >>> let parse :: Parser a -> Text -> Either ParseError a; parse p text = runP p () "" text
-
 -- | Parser for a full 'Program'.
 --
 -- >>> isRight $ parse program "  +[->>+  +[<] ##garbage## ],.[-]  can ignore garbage"

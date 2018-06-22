@@ -12,7 +12,6 @@ In this module we:
     - Provide optimization rules to speed up IR execution.
     - Parse compiler command line options
 -}
-
 module HBF.Compiler
   ( module HBF.Compiler
   -- * Reexport from "BFP.Parser"
@@ -41,7 +40,6 @@ import qualified HBF.Parser                     as BFP
 import           HBF.Types
 
 -- * Compilation
-
 -- | Encode the compiled file into the given path.
 saveCompilerOutput :: Program Optimized -> FilePath -> IO ()
 saveCompilerOutput = flip B.encodeFile . instructions
@@ -105,7 +103,6 @@ toIR :: Program Unoptimized -> Program Optimized
 toIR = coerce
 
 -- * Optimization
-
 -- | Helper type to apply the Fuse optimization using a 'Monoid'.
 newtype FusedProgram = Fused
   { unfused :: Program Optimized
@@ -174,7 +171,6 @@ instance Monoid FusedProgram where
 --
 -- >>> fusionOpt $ Program [Inc 1 0, Inc 1 1]
 -- [Inc 1 0,Inc 1 1]
-
 fusionOpt :: Program Optimized -> Program Optimized
 fusionOpt = unfused . foldMap (Fused . Program . optimizeIn) . instructions
   where
@@ -284,8 +280,8 @@ emptyState = OffSt [] [] 0
 -- >>> offsetInstructionOpt  $ Program [Loop [], Move 1, Inc 1 0, Scan Up 0, Inc 0 2, Loop []]
 -- [Loop [],Inc 1 1,Scan Up 1,Inc 0 2,Loop []]
 offsetInstructionOpt :: Program Optimized -> Program Optimized
-offsetInstructionOpt =
--- We implement this as a stateful computation for code clarity
+offsetInstructionOpt -- We implement this as a stateful computation for code clarity
+ =
   Program .
   stOptimized .
   (`execState` emptyState) .
@@ -327,7 +323,6 @@ offsetInstructionOpt =
       modify $ \s@OffSt {..} -> s {stOptimized = reverse stOptimized}
 
 -- * Loading Compiled Code
-
 -- | Load a compiled program from 'saveCompilerOutput' output.
 load :: ByteString -> Program Optimized
 load = B.decode
@@ -337,7 +332,6 @@ loadFile :: FilePath -> IO (Program Optimized)
 loadFile = B.decodeFile
 
 -- * Compiler Flags
-
 -- | Command line flags to the Brainfuck compiler
 data CompilerOptions = CompilerOptions
   { cOptsOut                            :: Maybe FilePath -- ^ Where to put the compiled output, if 'Nothing' use the input basename with bfc extension
@@ -441,9 +435,7 @@ parse :: IO CompilerOptions
 parse = getArgs >>= unsafeParse
 
 ----------------------- implementation details ----------------------
-
 -- * Implementation Detail: Parsing Lists of Instructions
-
 -- | This parser is used to implement the mul optimization. See 'mulOpt'.
 type ProgramParser a = Parsec.ParsecT [Op] () Identity a
 

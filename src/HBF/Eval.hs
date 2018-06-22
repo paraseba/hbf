@@ -3,19 +3,26 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# OPTIONS_GHC -fno-full-laziness #-}
 
+{-|
+Description : Brainfuck Virtual Machine
+Copyright   : (c) Sebastian Galkin, 2018
+License     : GPL-3
+
+Functions to evaluate a compiled Brainfuck program.
+-}
 module HBF.Eval
-  ( eval
+  ( MachineType
+  , eval
   , evalWith
   , evalWithIO
   , evalWithMachine
-  , MachineType
   , emptyMachine
   , mkMachine
+  , VMOptions(..)
+  , defaultVMOptions
   , unsafeParse
   , parse
   , parsePure
-  , defaultVMOptions
-  , VMOptions(..)
   ) where
 
 import           Control.Monad                     (replicateM_, when)
@@ -33,20 +40,21 @@ import           System.Environment                (getArgs)
 
 import           HBF.Types
 
+-- | An alias for a 'Machine' in which memory is an unboxed vector of bytes.
 type MachineType = Machine (Data.Vector.Unboxed.Vector Int8)
 
 {-# INLINABLE eval #-}
+-- | Evaluate the given program returning the end state of the 'Machine'. The evaluation can
+-- happen in any 'PrimMonad' for which we can do I/O. The reason to use 'PrimState' is that
+-- we will use mutable vectors for the evaluation.
 eval :: (PrimMonad m, MachineIO m) => Program Optimized -> m MachineType
 eval = evalWithMachine defaultVMOptions emptyMachine
 
-{-# INLINABLE evalWithIO #-}
-evalWithIO :: VMOptions -> Program Optimized -> IO MachineType
-evalWithIO opts program = do
-  machine <- evalWith opts program
-  when (vmOptsDumpMemory opts) $ print machine
-  return machine
-
 {-# INLINABLE evalWith #-}
+-- | Evaluate the given program returning the end state of the 'Machine'. The evaluation can
+-- happen in any 'PrimMonad' for which we can do I/O. The reason to use 'PrimState' is that
+-- we will use mutable vectors for the evaluation. 'VMOptions' are used to tune the details
+-- of the VM, like available memory, verbosity, etc.
 evalWith ::
      (PrimMonad m, MachineIO m)
   => VMOptions
@@ -55,10 +63,24 @@ evalWith ::
 evalWith opts program =
   evalWithMachine opts (mkMachine (vmOptsMemoryBytes opts)) program
 
+{-# INLINABLE evalWithIO #-}
+-- | Evaluate the given program returning the end state of the 'Machine'. The evaluation
+-- happens in IO, so Input/Output is done to the console.
+evalWithIO :: VMOptions -> Program Optimized -> IO MachineType
+evalWithIO opts program = do
+  machine <- evalWith opts program
+  when (vmOptsDumpMemory opts) $ print machine
+  return machine
+
 {-# SPECIALISE evalWithMachine ::
                  VMOptions -> MachineType -> Program Optimized -> IO MachineType #-}
 
 {-# INLINABLE evalWithMachine #-}
+-- | Evaluate the given program returning the end state of the 'Machine'. The evaluation can
+-- happen in any 'PrimMonad' for which we can do I/O. The reason to use 'PrimState' is that
+-- we will use mutable vectors for the evaluation. 'VMOptions' are used to tune the details
+-- of the VM, like memory available, verbosity, etc. The evaluation starts with the specified
+-- 'MachineType', so the memory and initial pointer can be configured before running.
 evalWithMachine ::
      forall m. (PrimMonad m, MachineIO m)
   => VMOptions
@@ -139,20 +161,33 @@ factor2i :: MulFactor -> Int8
 factor2i = fromIntegral . (coerce :: MulFactor -> Int)
 
 {-# INLINE factor2i #-}
-machineSize :: Int
+-- | Size of the default VM memory, in bytes.
+machineSize :: Word
 machineSize = 30000
 
+-- | A VM 'Machine' with the default memory available.
 emptyMachine :: MachineType
-emptyMachine = Machine {memory = GV.replicate machineSize 0, pointer = 0}
+emptyMachine = mkMachine machineSize
 
+-- | Create a new machine with the given memory
 mkMachine :: Word -> MachineType
 mkMachine n = Machine {memory = GV.replicate (fromIntegral n) 0, pointer = 0}
 
+-- | Command line arguments for the VM evaluator.
 data VMOptions = VMOptions
-  { vmOptsMemoryBytes :: Word
-  , vmOptsDumpMemory  :: Bool
-  , vmOptsProgramPath :: FilePath
+  { vmOptsMemoryBytes :: Word -- ^ Available memory in bytes.
+  , vmOptsDumpMemory  :: Bool -- ^ Dump the contents of the memory after executing a program
+  , vmOptsProgramPath :: FilePath -- ^ Path to the compiled program
   } deriving (Show)
+
+-- | Default configuration for the VM.
+defaultVMOptions :: VMOptions
+defaultVMOptions =
+  VMOptions
+    { vmOptsMemoryBytes = 30000
+    , vmOptsDumpMemory = False
+    , vmOptsProgramPath = ""
+    }
 
 optionsP :: Parser VMOptions
 optionsP =
@@ -179,19 +214,14 @@ parserInfo =
     (fullDesc <> progDesc "Run the compiled Brainfuck program in PROGRAM file" <>
      header "An optimizing Brainfuck compiler and evaluator")
 
-defaultVMOptions :: VMOptions
-defaultVMOptions =
-  VMOptions
-    { vmOptsMemoryBytes = 30000
-    , vmOptsDumpMemory = False
-    , vmOptsProgramPath = ""
-    }
-
+-- | Parse a list of command line arguments
 parsePure :: [String] -> ParserResult VMOptions
 parsePure = execParserPure defaultPrefs parserInfo
 
+-- | Parse a list of command line arguments printing errors to the stderr
 unsafeParse :: [String] -> IO VMOptions
 unsafeParse = handleParseResult . parsePure
 
+-- | Parse command line arguments printing errors to the stderr
 parse :: IO VMOptions
 parse = getArgs >>= unsafeParse

@@ -122,15 +122,15 @@ cons5 ::
 cons5 f = decDepth $ f <$> series <~> series <~> series <~> series <~> series
 
 execProgram :: Program Optimized -> MockIO -> IO (MachineType, MockIO)
-execProgram program = runStateT (eval program)
+execProgram p = runStateT (eval p)
 
 execProgramS :: Program Optimized -> String -> IO (MachineType, MockIO)
-execProgramS program input = runStateT (eval program) (mkMockIOS input)
+execProgramS p input = runStateT (eval p) (mkMockIOS input)
 
 execCodeMock :: Text -> String -> IO (MachineType, MockIO)
-execCodeMock code input = execProgram program (mkMockIOS input)
+execCodeMock code input = execProgram p (mkMockIOS input)
   where
-    (Right (program, _)) = inMemoryCompile defaultCompilerOptions code
+    (Right (p, _)) = inMemoryCompile defaultCompilerOptions code
 
 execCode :: Text -> String -> IO (MachineType, String)
 execCode code input = fmap mockOutputS <$> execCodeMock code input
