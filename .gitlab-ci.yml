@@ -12,9 +12,14 @@ test:
   before_script:
     - nix-channel --add https://nixos.org/channels/nixpkgs-unstable nixpkgs
     - nix-channel --update
+    - nix-env -f '<nixpkgs>' -iA wget cabal-install cabal2nix ghc
+
 
   script:
-    - "nix-shell -p wget -p cabal-install -p cabal2nix -p 'haskellPackages.ghcWithPackages (pkgs: [pkgs.shake])' --run './build coverage && ./build bench'"
+    - "nix-shell -p 'haskellPackages.ghcWithPackages (pkgs: [pkgs.shake])' --run './build -v'"
+      # some encoding issue if we don't redirect output
+    - "./_shake/build coverage && ./_shake/build bench >/dev/null 2>&1"
+
 
   artifacts:
     paths:
