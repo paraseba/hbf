@@ -110,7 +110,9 @@ main =
       , shakeColor = True
       } $ do
     want ["build"]
-    cabalFlagsFile %> cmd_ "touch" cabalFlagsFile
+    cabalFlagsFile %> \out -> do
+      cmd_ "mkdir" "-p" "dist"
+      cmd_ "touch" out
     getConfigure <-
       addOracle $ \ConfigureMapQ {} -> do
         need ["hbf.cabal", "default.nix", "release.nix", cabalFlagsFile]
@@ -131,12 +133,18 @@ main =
       need ["hbf.cabal"]
       Stdout stdout <- cmd "cabal2nix ."
       writeFileChanged out stdout
-    phony "clean" $ do
+    phony "cleancabal" $ do
       putNormal "Cabal cleaning"
       cmd_ "cabal clean"
+
+    phony "cleanshake" $ do
       putNormal "Shake cleaning"
       buildDir <- shakeFiles <$> getShakeOptions
       removeFilesAfter buildDir ["//*"]
+
+    phony "clean" $
+      need ["cleancabal", "cleanshake"]
+
     let status = getConfigureStatus . ConfigureStatusQ
         currentStatuses = do
           t <- status Tests
@@ -200,12 +208,11 @@ main =
       ensureConfigure [Benchmarks] current
       cmd_ "cabal build -j bench:evalbench"
     phony "coverage" $ do
-      need ["clean", "public/.dummy", exetest]
+      need ["cleancabal", "public/.dummy"]
       oldstatus <- currentStatuses
       configure [Coverage, Tests] []
       cmd_ "cabal test -j"
       cmd_ "cp" "-r" "dist/hpc/vanilla/html/test" "public/coverage"
-      need ["clean"]
       configure oldstatus [Coverage, Tests]
     phony "buildall" $ do
       sequence [sourceFiles, testFiles, benchFiles] >>= need . concat
