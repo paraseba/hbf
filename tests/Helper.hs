@@ -5,17 +5,22 @@
 -- needed for smallcheck
 module Helper where
 
-import           Data.Coerce            (coerce)
-import           Data.Int               (Int8)
-import           Data.Semigroup         ((<>))
-import           Data.Text.Lazy         (Text, pack)
-import qualified Data.Vector.Unboxed    as Vector
-import           Hedgehog               (Gen)
-import qualified Hedgehog.Gen           as Gen
-import qualified Hedgehog.Range         as Range
+import           Control.Monad.Trans.State (runStateT)
+import           Data.Coerce               (coerce)
+import           Data.Int                  (Int8)
+import           Data.Semigroup            ((<>))
+import           Data.Text.Lazy            (Text, pack)
+import qualified Data.Text.Lazy.IO         as TIO
+import qualified Data.Vector.Unboxed       as Vector
+import           Hedgehog                  (Gen)
+import qualified Hedgehog.Gen              as Gen
+import qualified Hedgehog.Range            as Range
 import           Test.SmallCheck.Series
 
-import           HBF.Compiler           (CompilerOptions (..))
+import           HBF.Compiler              (CompilerOptions (..),
+                                            defaultCompilerOptions,
+                                            inMemoryCompile)
+import           HBF.Eval                  (TapeType, eval)
 import           HBF.Parser
 import           HBF.Types
 
@@ -88,7 +93,7 @@ makeMul muls =
       replicate off (MRight 1) ++ replicate fact (Inc 1 0)
 
 listTape :: Tape (Vector.Vector Int8) -> Tape [Int8]
-listTape t = Tape {pointer = pointer t, memory = Vector.toList (memory t)}
+listTape t = t {memory = Vector.toList (memory t)}
 
 newtype CompFlags =
   CompFlags CompilerOptions
@@ -115,3 +120,20 @@ cons5 ::
   => (a1 -> a2 -> a3 -> a4 -> a5 -> a6)
   -> Series m a6
 cons5 f = decDepth $ f <$> series <~> series <~> series <~> series <~> series
+
+execProgram :: Program Optimized -> MockIO -> IO (TapeType, MockIO)
+execProgram program = runStateT (eval program)
+
+execProgramS :: Program Optimized -> String -> IO (TapeType, MockIO)
+execProgramS program input = runStateT (eval program) (mkMockIOS input)
+
+execCodeMock :: Text -> String -> IO (TapeType, MockIO)
+execCodeMock code input = execProgram program (mkMockIOS input)
+  where
+    (Right (program, _)) = inMemoryCompile defaultCompilerOptions code
+
+execCode :: Text -> String -> IO (TapeType, String)
+execCode code input = fmap mockOutputS <$> execCodeMock code input
+
+execFile :: FilePath -> String -> IO (TapeType, String)
+execFile p input = TIO.readFile p >>= \code -> execCode code input

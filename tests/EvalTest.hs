@@ -13,19 +13,14 @@ import qualified HBF.Eval                  as E
 import           HBF.Types
 import           Helper
 
-exec :: Program Optimized -> MockIO -> IO (E.TapeType, MockIO)
-exec program = runStateT (E.eval program)
-
 unit_canFactorNumbers :: Assertion
 unit_canFactorNumbers = do
-  code <- TIO.readFile "tests/factor.bf"
-  let (Right (program, _)) = C.inMemoryCompile C.defaultCompilerOptions code
-  (_, finalState) <- exec program (mkMockIOS "25454\n")
-  mockOutputS finalState @?= "25454: 2 11 13 89\n"
+  (_, out) <- execFile "tests/factor.bf" "25454\n"
+  out @?= "25454: 2 11 13 89\n"
 
 unit_evalScanR :: Assertion
 unit_evalScanR = do
-  (tape, _) <- exec program (mkMockIO [])
+  (tape, _) <- execProgramS program ""
   let (Tape mem index) = listTape tape
   (index, take 6 mem) @?= (4, [42, 42, 42, 42, 17, 0])
   where
@@ -34,7 +29,7 @@ unit_evalScanR = do
 
 unit_evalScanL :: Assertion
 unit_evalScanL = do
-  (tape, _) <- exec program (mkMockIO [])
+  (tape, _) <- execProgramS program ""
   let (Tape mem index) = listTape tape
   (index, take 6 mem) @?= (1, [0, 17, 42, 42, 42, 0])
   where
@@ -43,7 +38,7 @@ unit_evalScanL = do
 
 unit_evalScanROnZero :: Assertion
 unit_evalScanROnZero = do
-  (tape, _) <- exec program (mkMockIO [])
+  (tape, _) <- execProgramS program ""
   let (Tape mem index) = listTape tape
   (index, take 4 mem) @?= (1, [42, 0, 42, 0])
   where
@@ -52,7 +47,7 @@ unit_evalScanROnZero = do
 
 unit_evalScanLOnZero :: Assertion
 unit_evalScanLOnZero = do
-  (tape, _) <- exec program (mkMockIO [])
+  (tape, _) <- execProgramS program ""
   let (Tape mem index) = listTape tape
   (index, take 4 mem) @?= (1, [42, 0, 42, 0])
   where
@@ -66,7 +61,7 @@ scprop_allOptimizationFlagsSameResult (CompFlags opts) =
   monadic $ do
     code <- TIO.readFile "tests/allfeatures.bf"
     let (Right (program, _)) = C.inMemoryCompile opts code
-    (finalTape, finalState) <- exec program (mkMockIOS "0")
+    (finalTape, finalState) <- execProgram program (mkMockIOS "0")
     pure $
       mockOutputS finalState == expectedOutput &&
       memory finalTape == expectedMemory
