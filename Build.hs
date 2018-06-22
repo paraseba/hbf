@@ -110,6 +110,7 @@ main =
       , shakeColor = True
       } $ do
     want ["build"]
+    cabalFlagsFile %> cmd_ "touch" cabalFlagsFile
     getConfigure <-
       addOracle $ \ConfigureMapQ {} -> do
         need ["hbf.cabal", "default.nix", "release.nix", cabalFlagsFile]
@@ -219,7 +220,7 @@ main =
       cmd_ "cabal build -j exe:hbfc"
     exevm %> \_ -> do
       sources <- sourceFiles
-      need $ cabalFlagsFile : sources
+      need $ sources
       current <- currentStatuses
       ensureConfigure [] current
       cmd_ "cabal build -j exe:hbf"
