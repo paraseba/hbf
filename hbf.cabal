@@ -18,10 +18,10 @@ bug-reports:         https://gitlab.com/paraseba/hbf/issues
 
 category:            Language
 
-extra-source-files:  - README.md
-                     - tests/allfeatures.bf
-                     - tests/factor.bf
-                     - tests/squares.bf
+extra-source-files:  README.md
+                     , tests/allfeatures.bf
+                     , tests/factor.bf
+                     , tests/squares.bf
 
 source-repository head
      type: git
