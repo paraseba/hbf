@@ -61,7 +61,7 @@ library
   hs-source-dirs:      src
   default-language:    Haskell2010
 
-  ghc-options: -O2
+  ghc-options: -O
                -Wall
                -fwarn-incomplete-record-updates
                -fwarn-monomorphism-restriction
@@ -87,7 +87,7 @@ executable hbfc
 
   hs-source-dirs:      exe
   default-language:    Haskell2010
-  ghc-options: -O2
+  ghc-options: -O
                -Wall
                -main-is Hbfc
                -fwarn-incomplete-record-updates
@@ -99,7 +99,7 @@ executable hbf
                      , hbf
   hs-source-dirs:      exe
   default-language:    Haskell2010
-  ghc-options: -O2
+  ghc-options: -O
                -Wall
                -main-is Hbf
                -fwarn-incomplete-record-updates
@@ -135,7 +135,7 @@ test-suite test
                      , tasty-discover
                      , doctest
 
-  ghc-options: -O2
+  ghc-options: -O
                -Wall
                -fwarn-incomplete-record-updates
                -fwarn-monomorphism-restriction
@@ -161,7 +161,7 @@ benchmark evalbench
                      , transformers
 
   hs-source-dirs:      bench
-  ghc-options: -O2
+  ghc-options: -O
                -Wall
                -main-is BenchEval
                -fwarn-incomplete-record-updates
