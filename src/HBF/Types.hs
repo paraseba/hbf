@@ -21,7 +21,7 @@ import           Control.Exception              (catch)
 import           Control.Monad.Trans.State.Lazy (StateT, get, modify, put)
 import           Data.Binary                    (Binary)
 import           Data.Char                      (chr, ord)
-import           Data.Int
+import           Data.Int                       (Int8)
 import           Data.List                      (uncons)
 import           Data.Semigroup                 (Semigroup (..))
 import           GHC.Generics                   (Generic)

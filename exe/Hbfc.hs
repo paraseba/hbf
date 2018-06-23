@@ -1,7 +1,7 @@
 module Hbfc where
 
 import           Data.Monoid  ((<>))
-import qualified System.Exit  as Exit
+import           System.Exit  (die)
 
 import           HBF.Compiler (CompilationSummary, ParseError, compile, parse)
 
@@ -14,7 +14,7 @@ main = do
 errorOut :: ParseError -> IO ()
 errorOut err = do
   putStrLn "Error compiling code"
-  Exit.die (show err)
+  die (show err)
 
 successOut :: CompilationSummary -> IO ()
 successOut s = putStrLn $ "Compiled code:\n" <> show s

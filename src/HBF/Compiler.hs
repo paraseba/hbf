@@ -18,25 +18,31 @@ module HBF.Compiler
   , BFP.ParseError
   ) where
 
-import           Control.Monad                  (when)
-import           Control.Monad.Trans.State.Lazy
-import qualified Data.Binary                    as B
-import           Data.ByteString.Lazy           (ByteString)
-import           Data.Coerce                    (coerce)
-import           Data.Foldable                  (traverse_)
-import           Data.Functor.Identity          (Identity)
-import           Data.Maybe                     (fromMaybe)
-import           Data.Semigroup                 (Semigroup (..), (<>))
-import           Data.Text.Lazy                 (Text)
-import qualified Data.Text.Lazy.IO              as TIO
-import           Data.Tuple                     (swap)
-import           Options.Applicative
-import           System.Environment             (getArgs)
-import           System.FilePath                ((-<.>))
-import qualified Text.Parsec                    as Parsec
-import           Text.Parsec.Pos                (initialPos)
+import           Control.Monad             (when)
+import           Control.Monad.Trans.State (State, execState, get, modify, put)
+import qualified Data.Binary               as B
+import           Data.ByteString.Lazy      (ByteString)
+import           Data.Coerce               (coerce)
+import           Data.Foldable             (traverse_)
+import           Data.Functor.Identity     (Identity)
+import           Data.Maybe                (fromMaybe)
+import           Data.Semigroup            (Semigroup (..), (<>))
+import           Data.Text.Lazy            (Text)
+import qualified Data.Text.Lazy.IO         as TIO
+import           Data.Tuple                (swap)
+import           Options.Applicative       (Parser, ParserInfo, ParserResult,
+                                            argument, defaultPrefs,
+                                            execParserPure, fullDesc,
+                                            handleParseResult, header, help,
+                                            helper, info, long, metavar, option,
+                                            optional, progDesc, short, str,
+                                            switch, (<**>))
+import           System.Environment        (getArgs)
+import           System.FilePath           ((-<.>))
+import qualified Text.Parsec               as Parsec
+import           Text.Parsec.Pos           (initialPos)
 
-import qualified HBF.Parser                     as BFP
+import qualified HBF.Parser                as BFP
 import           HBF.Types
 
 -- * Compilation

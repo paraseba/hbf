@@ -35,7 +35,15 @@ import qualified Data.Vector.Fusion.Stream.Monadic as VStream
 import qualified Data.Vector.Generic               as GV
 import qualified Data.Vector.Generic.Mutable       as MV
 import qualified Data.Vector.Unboxed
-import           Options.Applicative
+import           Options.Applicative               (Parser, ParserInfo,
+                                                    ParserResult, argument,
+                                                    auto, defaultPrefs,
+                                                    execParserPure, fullDesc,
+                                                    handleParseResult, header,
+                                                    help, helper, info, long,
+                                                    metavar, option, progDesc,
+                                                    short, str, switch, value,
+                                                    (<**>))
 import           System.Environment                (getArgs)
 
 import           HBF.Types
