@@ -19,6 +19,7 @@ bug-reports:         https://gitlab.com/paraseba/hbf/issues
 category:            Language
 
 extra-source-files:  README.md
+                     , ChangeLog.md
                      , tests/allfeatures.bf
                      , tests/factor.bf
                      , tests/squares.bf
