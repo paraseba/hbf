@@ -2,6 +2,8 @@
 
 A Brainfuck optimizing compiler and evaluator.
 
+[![pipeline status](https://gitlab.com/paraseba/hbf/badges/master/pipeline.svg)](https://gitlab.com/paraseba/hbf/commits/master)
+
 ## Getting Started
 
 Install HBF from Hackage using cabal or stack.
@@ -37,23 +39,21 @@ cabal test
 cabal doctest
 ```
 
+Test coverage report for the last build can be found [here](https://paraseba.gitlab.io/hbf/coverage/hpc_index.html).
+
 ## Running the benchmarks
 
 ```
 cabal bench
 ```
 
-
-
-## Authors
-
-* **Sebastian Galkin**
-
-See also the list of [contributors](https://github.com/your/project/contributors) who participated in this project.
+Benchmark report for the last build can be found [here](https://paraseba.gitlab.io/hbf/bench.htm).
 
 ## License
 
 This project is licensed under the GPL-3 License - see the [LICENSE](LICENSE) file for details
+
+Copyright 2018 Sebastian Galkin.
 
 ## Acknowledgments
 

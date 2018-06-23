@@ -15,17 +15,17 @@ description:
                      machine that executes compiled Brainfuck programs.
 homepage:            https://gitlab.com/paraseba/hbf
 bug-reports:         https://gitlab.com/paraseba/hbf/issues
-source-repository head
-    type: git
-    location: git@gitlab.com:paraseba/hbf.git
+
 category:            Language
 
-extra-source-files:
-                     - README.md
+extra-source-files:  - README.md
                      - tests/allfeatures.bf
                      - tests/factor.bf
                      - tests/squares.bf
 
+source-repository head
+     type: git
+     location: git@gitlab.com:paraseba/hbf.git
 
 flag dump
   -- dump files will be available after cabal build in dist/build/src/HBF/
@@ -45,8 +45,6 @@ library
                  , HBF.Compiler
 
 
-  -- other-modules:
-  -- other-extensions:
   build-depends:       base >=4.10 && <4.11
                      , vector
                      , primitive
@@ -62,7 +60,6 @@ library
   hs-source-dirs:      src
   default-language:    Haskell2010
 
-  -- ghc-options: -fprof-auto
   ghc-options: -O2
                -Wall
                -fwarn-incomplete-record-updates
@@ -78,15 +75,12 @@ library
                 -dsuppress-coercions
                 -dsuppress-type-applications
                 -dsuppress-uniques
-                -- -dsuppress-module-prefixes
 
   if flag(profile)
     ghc-options: -fprof-auto
 
 executable hbfc
   main-is:             Hbfc.hs
-  -- other-modules:
-  -- other-extensions:
   build-depends:       base >=4.10 && <4.11
                      , hbf
 
@@ -100,8 +94,6 @@ executable hbfc
 
 executable hbf
   main-is:             Hbf.hs
-  -- other-modules:
-  -- other-extensions:
   build-depends:       base >=4.10 && <4.11
                      , hbf
   hs-source-dirs:      exe
@@ -160,8 +152,6 @@ benchmark evalbench
   type:
     exitcode-stdio-1.0
   default-language:    Haskell2010
-  -- other-modules:
-  -- other-extensions:
   build-depends:       base >=4.10 && <4.11
                      , hbf
                      , criterion

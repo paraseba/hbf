@@ -23,5 +23,7 @@ mkDerivation {
   benchmarkHaskellDepends = [
     base criterion filepath text transformers
   ];
+  homepage = "https://gitlab.com/paraseba/hbf";
+  description = "An optimizing Brainfuck compiler and evaluator";
   license = stdenv.lib.licenses.gpl3;
 }

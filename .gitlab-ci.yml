@@ -12,13 +12,16 @@ test:
   before_script:
     - nix-channel --add https://nixos.org/channels/nixpkgs-unstable nixpkgs
     - nix-channel --update
-    - nix-env -f '<nixpkgs>' -iA wget cabal-install cabal2nix ghc
+    - nix-env -f '<nixpkgs>' -iA wget cabal-install cabal2nix ghc glibcLocales
 
 
   script:
     - "nix-shell -p 'haskellPackages.ghcWithPackages (pkgs: [pkgs.shake])' --run './build -v'"
-      # some encoding issue if we don't redirect output
-    - "./_shake/build coverage && echo 'Executing benchmarks...' && ./_shake/build bench >/dev/null 2>&1 && echo 'Done.' || echo 'Error'"
+      # some encoding issue if we don't have locales
+    - "export LOCALE_ARCHIVE=/root/.nix-profile/lib/locale/locale-archive"
+    - "export LANG=en_US.UTF-8"
+    - "export LC_ALL=en_US.UTF-8"
+    - "./_shake/build coverage && ./_shake/build bench && echo 'Done.'"
 
 
   artifacts:
