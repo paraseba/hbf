@@ -1,4 +1,4 @@
-module Hbf where
+module Main where
 
 import           HBF.Compiler (loadFile)
 import           HBF.Eval     (VMOptions (..), evalWithIO, parse)

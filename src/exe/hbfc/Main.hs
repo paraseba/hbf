@@ -1,4 +1,4 @@
-module Hbfc where
+module Main where
 
 import           Data.Monoid  ((<>))
 import           System.Exit  (die)
