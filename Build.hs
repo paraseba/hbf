@@ -232,3 +232,9 @@ main =
     "public/.dummy" %> \out -> do
       cmd_ "mkdir" "-p" "./public"
       cmd_ "touch" out
+    phony "doc" $ do
+      sequence [sourceFiles, testFiles, benchFiles] >>= need . concat
+      cmd_ $ nixrun "cabal haddock --all --hyperlink-source"
+    phony "watchdoc" $ do
+      sequence [sourceFiles, testFiles, benchFiles] >>= need . concat
+      cmd_ $ nixrun "fd -e hs | entr cabal haddock --all --hyperlink-source"
