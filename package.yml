@@ -16,7 +16,7 @@ homepage:            https://gitlab.com/paraseba/hbf
 bug-reports:         https://gitlab.com/paraseba/hbf/issues
 
 category:            Language
-tested-with: "GHC == 8.2.1, GHC == 8.2.2, GHC == 8.4.1, GHC == 8.4.2, GHC == 8.4.3"
+tested-with: "GHC == 8.2.1, GHC == 8.2.2, GHC == 8.4.1, GHC == 8.4.2, GHC == 8.4.3, GHC == 8.6.1"
 
 extra-source-files:
   - README.md
