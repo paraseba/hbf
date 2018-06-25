@@ -64,13 +64,14 @@ install:
   - NOINSTALLEDCONSTRAINTS=${NOINSTALLEDCONSTRAINTS-false}
   - GHCHEAD=${GHCHEAD-false}
   - travis_retry cabal update -v
+  - travis_retry cabal install tasty-discover
+  - tasty-discover || true
   - "sed -i.bak 's/^jobs:/-- jobs:/' ${HOME}/.cabal/config"
   - rm -fv cabal.project cabal.project.local
   - grep -Ev -- '^\s*--' ${HOME}/.cabal/config | grep -Ev '^\s*$'
   - "printf 'packages: \".\"\\n' > cabal.project"
   - touch cabal.project.local
   - "if ! $NOINSTALLEDCONSTRAINTS; then for pkg in $($HCPKG list --simple-output); do echo $pkg | sed 's/^/constraints: /' | sed 's/-[^-]*$/ installed/' >> cabal.project.local; done; fi"
-  - travis_retry cabal install tasty-discover
   - cat cabal.project || true
   - cat cabal.project.local || true
   - if [ -f "./configure.ac" ]; then
