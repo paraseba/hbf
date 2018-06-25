@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 710c9a4817b5185dd6f9ba61696fed86d8b485be5da7ca4f2083727ae9c09c2f
+-- hash: 70fcc075a5e66679d61b0f87072917026f0c5f8a0df5381f7abe20ae2d924eb1
 
 name:                hbf
 version:             0.1.0.0
@@ -55,7 +55,7 @@ library
     , bytestring >=0.10.8.0
     , deepseq >=1.4.3.0
     , filepath >=1.4.1.2
-    , optparse-applicative >=0.14.0.0
+    , optparse-applicative
     , parsec >=3.1.13.0
     , primitive >=0.6.2.0
     , text >=1.2.2.0
@@ -84,7 +84,7 @@ executable hbf
     , deepseq >=1.4.3.0
     , filepath >=1.4.1.2
     , hbf
-    , optparse-applicative >=0.14.0.0
+    , optparse-applicative
     , parsec >=3.1.13.0
     , primitive >=0.6.2.0
     , text >=1.2.2.0
@@ -108,7 +108,7 @@ executable hbfc
     , deepseq >=1.4.3.0
     , filepath >=1.4.1.2
     , hbf
-    , optparse-applicative >=0.14.0.0
+    , optparse-applicative
     , parsec >=3.1.13.0
     , primitive >=0.6.2.0
     , text >=1.2.2.0
@@ -130,7 +130,7 @@ test-suite doctest
     , doctest
     , filepath >=1.4.1.2
     , hbf
-    , optparse-applicative >=0.14.0.0
+    , optparse-applicative
     , parsec >=3.1.13.0
     , primitive >=0.6.2.0
     , text >=1.2.2.0
@@ -154,7 +154,7 @@ test-suite test
     , hbf
     , hedgehog >=0.5
     , hedgehog-checkers >=0.1.0.0
-    , optparse-applicative >=0.14.0.0
+    , optparse-applicative
     , parsec >=3.1.13.0
     , primitive >=0.6.2.0
     , smallcheck >=1.1
@@ -192,7 +192,7 @@ benchmark evalbench
     , deepseq >=1.4.3.0
     , filepath >=1.4.1.2
     , hbf
-    , optparse-applicative >=0.14.0.0
+    , optparse-applicative
     , parsec >=3.1.13.0
     , primitive >=0.6.2.0
     , text >=1.2.2.0
