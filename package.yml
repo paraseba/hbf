@@ -16,7 +16,7 @@ homepage:            https://gitlab.com/paraseba/hbf
 bug-reports:         https://gitlab.com/paraseba/hbf/issues
 
 category:            Language
-tested-with: "GHC == 8.2.1, GHC == 8.2.2, GHC == 8.4.1, GHC == 8.4.2, GHC == 8.4.3, GHC == 8.6.1"
+tested-with: "GHC == 8.2.1, GHC == 8.2.2, GHC == 8.4.1, GHC == 8.4.2, GHC == 8.4.3"
 
 extra-source-files:
   - README.md
@@ -55,7 +55,7 @@ dependencies:
   - filepath >= 1.4.1.2
   - parsec >= 3.1.13.0
   - binary >= 0.8.5.1
-  - optparse-applicative # >= 0.14.0.0
+  - optparse-applicative >= 0.14.0.0
   - deepseq >= 1.4.3.0
 
 library:
