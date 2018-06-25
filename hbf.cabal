@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 52d387cac5e4409ba9bbc2b21b18ab93084d896c2ca023d84c601d76dc628a8f
+-- hash: 76c7560a29ce6f28e77bdeb6ba1977ccc57cb8ed7819ad80f1a564944849816c
 
 name:                hbf
 version:             0.1.0.0
@@ -16,8 +16,8 @@ maintainer:          paraseba@gmail.com
 copyright:           Sebastian Galkin, 2018
 synopsis:            An optimizing Brainfuck compiler and evaluator
 description:         hbf is a compiler and executor of Brainfuck programs. It provides two executables: @hbfc@ the Brainfuck compiler, and @hbf@ the virtual machine that executes compiled Brainfuck programs.
-homepage:            https://gitlab.com/paraseba/hbf
-bug-reports:         https://gitlab.com/paraseba/hbf/issues
+homepage:            https://github.com/paraseba/hbf
+bug-reports:         https://github.com/paraseba/hbf/issues
 category:            Language
 
 extra-source-files:
@@ -29,7 +29,7 @@ extra-source-files:
 
 source-repository head
   type: git
-  location: git@gitlab.com:paraseba/hbf.git
+  location: git@github.com:paraseba/hbf.git
 
 flag dump
   description: Dump stg and core files

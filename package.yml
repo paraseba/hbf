@@ -12,8 +12,8 @@ description:
    two executables: @hbfc@ the Brainfuck compiler, and @hbf@ the virtual
    machine that executes compiled Brainfuck programs."
 
-homepage:            https://gitlab.com/paraseba/hbf
-bug-reports:         https://gitlab.com/paraseba/hbf/issues
+homepage:            https://github.com/paraseba/hbf
+bug-reports:         https://github.com/paraseba/hbf/issues
 
 category:            Language
 tested-with: "GHC == 8.2.1, GHC == 8.2.2, GHC == 8.4.1, GHC == 8.4.2, GHC == 8.4.3"
@@ -25,7 +25,7 @@ extra-source-files:
   - tests/factor.bf
   - tests/squares.bf
 
-git: git@gitlab.com:paraseba/hbf.git
+git: git@github.com:paraseba/hbf.git
 
 flags:
 
