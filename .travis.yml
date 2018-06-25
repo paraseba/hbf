@@ -46,6 +46,7 @@ matrix:
 
 before_install:
   - HC=${CC}
+  - NOINSTALLEDCONSTRAINTS=true
   - HCPKG=${HC/ghc/ghc-pkg}
   - unset CC
   - ROOTDIR=$(pwd)
