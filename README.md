@@ -1,5 +1,4 @@
-# HBF [![Build Status](https://travis-ci.org/paraseba/hbf.svg?branch=master)](https://travis-ci.org/paraseba/hbf) [![Hackage](
-https://img.shields.io/hackage/v/hbf.svg)](https://hackage.haskell.org/package/hbf)
+# HBF [![Build Status](https://travis-ci.org/paraseba/hbf.svg?branch=master)](https://travis-ci.org/paraseba/hbf) [![Hackage](https://img.shields.io/hackage/v/hbf.svg)](https://hackage.haskell.org/package/hbf)
 
 
 
