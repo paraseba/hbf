@@ -14,14 +14,19 @@ mkDerivation {
     base binary bytestring deepseq filepath optparse-applicative parsec
     primitive text transformers vector
   ];
-  executableHaskellDepends = [ base ];
+  executableHaskellDepends = [
+    base binary bytestring deepseq filepath optparse-applicative parsec
+    primitive text transformers vector
+  ];
   testHaskellDepends = [
-    base doctest hedgehog hedgehog-checkers HUnit smallcheck tasty
-    tasty-discover tasty-hedgehog tasty-hunit tasty-smallcheck
-    temporary text transformers vector
+    base binary bytestring deepseq doctest filepath hedgehog
+    hedgehog-checkers HUnit optparse-applicative parsec primitive
+    smallcheck tasty tasty-discover tasty-hedgehog tasty-hunit
+    tasty-smallcheck temporary text transformers vector
   ];
   benchmarkHaskellDepends = [
-    base criterion filepath text transformers
+    base binary bytestring criterion deepseq filepath
+    optparse-applicative parsec primitive text transformers vector
   ];
   homepage = "https://gitlab.com/paraseba/hbf";
   description = "An optimizing Brainfuck compiler and evaluator";
