@@ -105,9 +105,11 @@ script:
   - if [ "x$TEST" = "x--enable-tests" ]; then travis_wait cabal new-test -w ${HC} ${TEST} ${BENCH} all; fi
 
   # coverage and benchmarks
-  - if [ "x$DEPLOY_REPORT" = "xtrue" ]; then mkdir public && travis_wait ./dist-newstyle/build/*/*/hbf-0.1.0.1/b/evalbench/build/evalbench/evalbench --output public/bench.html; fi
+  - if [ "x$DEPLOY_REPORT" = "xtrue" ]; then mkdir public && cd hbf-*/ && travis_wait ../dist-newstyle/build/*/*/hbf-0.1.0.1/b/evalbench/build/evalbench/evalbench --output ../public/bench.html; fi
 
-  - if [ "x$DEPLOY_REPORT" = "xtrue" ]; then travis_wait cabal new-test -w ${HC} --enable-coverage; mv dist-newstyle/build/*/*/hbf*/hpc/vanilla/html/hbf* public/coverage; fi
+  - cd ${DISTDIR} || false
+
+  - if [ "x$DEPLOY_REPORT" = "xtrue" ]; then travis_wait cabal new-test -w ${HC} --enable-coverage all && mv dist-newstyle/build/*/*/hbf*/hpc/vanilla/html/hbf* public/coverage; fi
 
   # cabal check
   - (cd hbf-* && cabal check)
@@ -124,7 +126,7 @@ deploy:
   skip-cleanup: true
   github-token: $GITHUB_TOKEN  # Set in the settings page of your repository, as a secure variable
   keep-history: true
-  local-dir: public
+  local-dir: ${DISTDIR}/public
   on:
     branch: master
     condition: $DEPLOY_REPORT = true
