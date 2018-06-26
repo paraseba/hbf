@@ -58,7 +58,7 @@ for an example, you can look at the documentation for
 cabal test
 ```
 
-Test coverage report for the last build can be found [here](https://paraseba.gitlab.io/hbf/coverage/hpc_index.html).
+Test coverage report for the last build can be found [here](https://paraseba.github.io/hbf/coverage/hpc_index.html).
 
 ### Running the benchmarks
 
@@ -66,7 +66,7 @@ Test coverage report for the last build can be found [here](https://paraseba.git
 cabal bench
 ```
 
-Benchmark report for the last build can be found [here](https://paraseba.gitlab.io/hbf/bench.html).
+Benchmark report sample can be found [here](https://paraseba.gitlab.io/hbf/bench.html).
 
 ## License
 
