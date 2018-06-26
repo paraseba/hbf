@@ -2,10 +2,10 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 2e87a5cd02b71c60a1afaedd80f0d5c77071e5f883c57143f3d73b46e3de20fa
+-- hash: d0a2bab316b8254089629b690ac242bffc13bc51cd5d53ff8037f99af9ce20ce
 
 name:                hbf
-version:             0.1.0.1
+version:             0.1.0.2
 cabal-version:       >= 1.10
 build-type:          Simple
 license:             GPL-3

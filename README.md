@@ -66,7 +66,7 @@ Test coverage report for the last build can be found [here](https://paraseba.git
 cabal bench
 ```
 
-Benchmark report sample can be found [here](https://paraseba.gitlab.io/hbf/bench.html).
+Benchmark report sample can be found [here](https://paraseba.github.io/hbf/bench.html).
 
 ## License
 
