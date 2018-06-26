@@ -12,8 +12,8 @@ evaluation.
 ## Getting Started
 
 ### Installing
-Use your preferred method for installing HBF from [Hackage](fixme-link). If you prefer to build from source
-you can use cabal.
+Use your preferred method for installing HBF from [Hackage](https://hackage.haskell.org/package/hbf).
+If you prefer to build from source you can use cabal.
 
 ### Usage
 
@@ -45,7 +45,11 @@ There are several options  to both the compiler and the evaluator, to modify lev
 
 
 ## Hacking
-HBF has heavily documented code. Take a look at the documentation on [Hackage](fixme-link).
+HBF has heavily documented code. You can read the documentation on [Hackage](https://hackage.haskell.org/package/hbf).
+
+All the optimizations are implemented in the [compiler](https://hackage.haskell.org/package/hbf/docs/HBF-Compiler.html), 
+for an example, you can look at the documentation for
+[`mulOpt`](https://hackage.haskell.org/package/hbf-0.1.0.1/docs/HBF-Compiler.html#v:mulOpt).
 
 
 ### Running the tests

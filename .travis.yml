@@ -38,6 +38,7 @@ matrix:
     # env: TEST=--disable-tests BENCH=--disable-benchmarks
       addons: {apt: {packages: [ghc-ppa-tools,cabal-install-2.2,ghc-8.4.1], sources: [hvr-ghc]}}
     - compiler: "ghc-8.2.2"
+      env: DEPLOY_REPORT=true
     # env: TEST=--disable-tests BENCH=--disable-benchmarks
       addons: {apt: {packages: [ghc-ppa-tools,cabal-install-2.2,ghc-8.2.2], sources: [hvr-ghc]}}
     - compiler: "ghc-8.2.1"
@@ -103,6 +104,11 @@ script:
   - cabal new-build -w ${HC} ${TEST} ${BENCH} all
   - if [ "x$TEST" = "x--enable-tests" ]; then travis_wait cabal new-test -w ${HC} ${TEST} ${BENCH} all; fi
 
+  # coverage and benchmarks
+  - if [ "x$DEPLOY_REPORT" = "xtrue" ]; then mkdir public && ./dist-newstyle/build/*/*/hbf-0.1.0.1/b/evalbench/build/evalbench/evalbench --output public/bench.html; fi
+
+  - if [ "x$DEPLOY_REPORT" = "xtrue" ]; then cabal new-test -w ${HC} --enable-coverage; mv dist-newstyle/build/*/*/hbf*/hpc/vanilla/html/hbf* public/coverage; fi
+
   # cabal check
   - (cd hbf-* && cabal check)
 
@@ -112,6 +118,16 @@ script:
 
   # Build without installed constraints for packages in global-db
   - if $UNCONSTRAINED; then rm -f cabal.project.local; echo cabal new-build -w ${HC} --disable-tests --disable-benchmarks all; else echo "Not building without installed constraints"; fi
+
+deploy:
+  provider: pages
+  skip-cleanup: true
+  github-token: $GITHUB_TOKEN  # Set in the settings page of your repository, as a secure variable
+  keep-history: true
+  local-dir: public
+  on:
+    branch: master
+    condition: $DEPLOY_REPORT = true
 
 # REGENDATA ["hbf.cabal"]
 # EOF
