@@ -1,0 +1,580 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<style type="text/css">
+span.lineno { color: white; background: #aaaaaa; border-right: solid white 12px }
+span.nottickedoff { background: yellow}
+span.istickedoff { background: white }
+span.tickonlyfalse { margin: -1px; border: 1px solid #f20913; background: #f20913 }
+span.tickonlytrue  { margin: -1px; border: 1px solid #60de51; background: #60de51 }
+span.funcount { font-size: small; color: orange; z-index: 2; position: absolute; right: 20 }
+span.decl { font-weight: bold }
+span.spaces    { background: white }
+</style>
+</head>
+<body>
+<pre>
+<span class="decl"><span class="nottickedoff">never executed</span> <span class="tickonlytrue">always true</span> <span class="tickonlyfalse">always false</span></span>
+</pre>
+<pre>
+<span class="lineno">    1 </span>{-# LANGUAGE LambdaCase      #-}
+<span class="lineno">    2 </span>{-# LANGUAGE RecordWildCards #-}
+<span class="lineno">    3 </span>
+<span class="lineno">    4 </span>{-|
+<span class="lineno">    5 </span>Description : Brainfuck compilation to IR
+<span class="lineno">    6 </span>Copyright   : (c) Sebastian Galkin, 2018
+<span class="lineno">    7 </span>License     : GPL-3
+<span class="lineno">    8 </span>
+<span class="lineno">    9 </span>In this module we:
+<span class="lineno">   10 </span>
+<span class="lineno">   11 </span>    - Convert 'Text' into a Brainfuck intermediate representation (IR) consisting of lists of 'Op's.
+<span class="lineno">   12 </span>    - Provide optimization rules to speed up IR execution.
+<span class="lineno">   13 </span>    - Parse compiler command line options
+<span class="lineno">   14 </span>-}
+<span class="lineno">   15 </span>module HBF.Compiler
+<span class="lineno">   16 </span>  ( module HBF.Compiler
+<span class="lineno">   17 </span>  -- * Reexport from &quot;BFP.Parser&quot;
+<span class="lineno">   18 </span>  , BFP.ParseError
+<span class="lineno">   19 </span>  ) where
+<span class="lineno">   20 </span>
+<span class="lineno">   21 </span>import           Control.Monad             (when)
+<span class="lineno">   22 </span>import           Control.Monad.Trans.State (State, execState, get, modify, put)
+<span class="lineno">   23 </span>import qualified Data.Binary               as B
+<span class="lineno">   24 </span>import           Data.ByteString.Lazy      (ByteString)
+<span class="lineno">   25 </span>import           Data.Coerce               (coerce)
+<span class="lineno">   26 </span>import           Data.Foldable             (traverse_)
+<span class="lineno">   27 </span>import           Data.Functor.Identity     (Identity)
+<span class="lineno">   28 </span>import           Data.Maybe                (fromMaybe)
+<span class="lineno">   29 </span>import           Data.Semigroup            (Semigroup (..), (&lt;&gt;))
+<span class="lineno">   30 </span>import           Data.Text.Lazy            (Text)
+<span class="lineno">   31 </span>import qualified Data.Text.Lazy.IO         as TIO
+<span class="lineno">   32 </span>import           Data.Tuple                (swap)
+<span class="lineno">   33 </span>import           Options.Applicative       (Parser, ParserInfo, ParserResult,
+<span class="lineno">   34 </span>                                            argument, defaultPrefs,
+<span class="lineno">   35 </span>                                            execParserPure, fullDesc,
+<span class="lineno">   36 </span>                                            handleParseResult, header, help,
+<span class="lineno">   37 </span>                                            helper, info, long, metavar, option,
+<span class="lineno">   38 </span>                                            optional, progDesc, short, str,
+<span class="lineno">   39 </span>                                            switch, (&lt;**&gt;))
+<span class="lineno">   40 </span>import           System.Environment        (getArgs)
+<span class="lineno">   41 </span>import           System.FilePath           ((-&lt;.&gt;))
+<span class="lineno">   42 </span>import qualified Text.Parsec               as Parsec
+<span class="lineno">   43 </span>import           Text.Parsec.Pos           (initialPos)
+<span class="lineno">   44 </span>
+<span class="lineno">   45 </span>import qualified HBF.Parser                as BFP
+<span class="lineno">   46 </span>import           HBF.Types
+<span class="lineno">   47 </span>
+<span class="lineno">   48 </span>-- * Compilation
+<span class="lineno">   49 </span>-- | Encode the compiled file into the given path.
+<span class="lineno">   50 </span>saveCompilerOutput :: Program Optimized -&gt; FilePath -&gt; IO ()
+<span class="lineno">   51 </span><span class="decl"><span class="istickedoff">saveCompilerOutput = flip B.encodeFile . instructions</span></span>
+<span class="lineno">   52 </span>
+<span class="lineno">   53 </span>-- | Use the given 'CompilerOptions' to parse, compile and optimize the text representation of a
+<span class="lineno">   54 </span>-- Brainfuck program into the IR. 'cOptsSource' and 'cOptsOut' in the compiler options are ignored.
+<span class="lineno">   55 </span>inMemoryCompile ::
+<span class="lineno">   56 </span>     CompilerOptions
+<span class="lineno">   57 </span>  -&gt; Text
+<span class="lineno">   58 </span>  -&gt; Either BFP.ParseError (Program Optimized, CompilationSummary)
+<span class="lineno">   59 </span><span class="decl"><span class="istickedoff">inMemoryCompile opts code =</span>
+<span class="lineno">   60 </span><span class="spaces">  </span><span class="istickedoff">(\p -&gt; (p, <span class="nottickedoff">summarizeCompilation p</span>)) . optimize opts &lt;$&gt; BFP.parseProgram code</span></span>
+<span class="lineno">   61 </span>
+<span class="lineno">   62 </span>-- | Compilation summary for the user. It contains overview information and
+<span class="lineno">   63 </span>-- statistics about the compilation result.
+<span class="lineno">   64 </span>newtype CompilationSummary = CompilationSummary
+<span class="lineno">   65 </span>  { <span class="nottickedoff"><span class="decl"><span class="nottickedoff">compNumInstructions</span></span></span> :: Int
+<span class="lineno">   66 </span>  } deriving (<span class="decl"><span class="nottickedoff">Show</span></span>)
+<span class="lineno">   67 </span>
+<span class="lineno">   68 </span>-- | Summarize a compiled program creating the 'CompilationSummary'
+<span class="lineno">   69 </span>summarizeCompilation :: Program Optimized -&gt; CompilationSummary
+<span class="lineno">   70 </span><span class="decl"><span class="nottickedoff">summarizeCompilation = CompilationSummary . length . instructions</span></span>
+<span class="lineno">   71 </span>
+<span class="lineno">   72 </span>-- | Use 'CompilerOptions' to read, compile, optimize, and save a program from/to the filesystem.
+<span class="lineno">   73 </span>-- Input and output files are provided by 'cOptsSource' and 'cOptsOut'.
+<span class="lineno">   74 </span>compile :: CompilerOptions -&gt; IO (Either BFP.ParseError CompilationSummary)
+<span class="lineno">   75 </span><span class="decl"><span class="istickedoff">compile opts@CompilerOptions {..} = do</span>
+<span class="lineno">   76 </span><span class="spaces">  </span><span class="istickedoff">when cOptsVerbose $ <span class="nottickedoff">do</span></span>
+<span class="lineno">   77 </span><span class="spaces">    </span><span class="istickedoff"><span class="nottickedoff">putStrLn &quot;Compiler options:&quot;</span></span>
+<span class="lineno">   78 </span><span class="spaces">    </span><span class="istickedoff"><span class="nottickedoff">print opts</span></span>
+<span class="lineno">   79 </span><span class="spaces">  </span><span class="istickedoff">compileResult &lt;- inMemoryCompile opts &lt;$&gt; TIO.readFile cOptsSource</span>
+<span class="lineno">   80 </span><span class="spaces">  </span><span class="istickedoff">either</span>
+<span class="lineno">   81 </span><span class="spaces">    </span><span class="istickedoff"><span class="nottickedoff">(return . Left)</span></span>
+<span class="lineno">   82 </span><span class="spaces">    </span><span class="istickedoff">(\p -&gt; save p &gt;&gt; (return . Right . <span class="nottickedoff">snd</span>) <span class="nottickedoff">p</span>)</span>
+<span class="lineno">   83 </span><span class="spaces">    </span><span class="istickedoff">compileResult</span>
+<span class="lineno">   84 </span><span class="spaces">  </span><span class="istickedoff">where</span>
+<span class="lineno">   85 </span><span class="spaces">    </span><span class="istickedoff">outPath = fromMaybe <span class="nottickedoff">(cOptsSource -&lt;.&gt; &quot;bfc&quot;)</span> cOptsOut</span>
+<span class="lineno">   86 </span><span class="spaces">    </span><span class="istickedoff">save (program, _) = saveCompilerOutput program outPath</span></span>
+<span class="lineno">   87 </span>
+<span class="lineno">   88 </span>-- | Apply optimizations to the 'Unoptimized' program turning. The optimizations that
+<span class="lineno">   89 </span>-- will be available are the ones specified by the 'CompilerOptions' given.
+<span class="lineno">   90 </span>optimize :: CompilerOptions -&gt; Program Unoptimized -&gt; Program Optimized
+<span class="lineno">   91 </span><span class="decl"><span class="istickedoff">optimize CompilerOptions {..} p = foldl (flip ($)) base optimizations</span>
+<span class="lineno">   92 </span><span class="spaces">  </span><span class="istickedoff">where</span>
+<span class="lineno">   93 </span><span class="spaces">    </span><span class="istickedoff">base = toIR p</span>
+<span class="lineno">   94 </span><span class="spaces">    </span><span class="istickedoff">opt condition f =</span>
+<span class="lineno">   95 </span><span class="spaces">      </span><span class="istickedoff">if condition</span>
+<span class="lineno">   96 </span><span class="spaces">        </span><span class="istickedoff">then f</span>
+<span class="lineno">   97 </span><span class="spaces">        </span><span class="istickedoff">else id</span>
+<span class="lineno">   98 </span><span class="spaces">    </span><span class="istickedoff">optimizations =</span>
+<span class="lineno">   99 </span><span class="spaces">      </span><span class="istickedoff">[ opt cOptsClearLoopOptimization clearOpt</span>
+<span class="lineno">  100 </span><span class="spaces">      </span><span class="istickedoff">, opt cOptsMulOptimization mulOpt</span>
+<span class="lineno">  101 </span><span class="spaces">      </span><span class="istickedoff">, opt cOptsScanOptimization scanOpt</span>
+<span class="lineno">  102 </span><span class="spaces">      </span><span class="istickedoff">, opt cOptsOffsetInstructionsOptimization offsetInstructionOpt</span>
+<span class="lineno">  103 </span><span class="spaces">      </span><span class="istickedoff">, opt cOptsFusionOptimization fusionOpt</span>
+<span class="lineno">  104 </span><span class="spaces">      </span><span class="istickedoff">]</span></span>
+<span class="lineno">  105 </span>
+<span class="lineno">  106 </span>-- | Given a parsed program, turn it into an optimized one, but with the null optimization.
+<span class="lineno">  107 </span>-- Effectively this is only a type change.
+<span class="lineno">  108 </span>toIR :: Program Unoptimized -&gt; Program Optimized
+<span class="lineno">  109 </span><span class="decl"><span class="istickedoff">toIR = coerce</span></span>
+<span class="lineno">  110 </span>
+<span class="lineno">  111 </span>-- * Optimization
+<span class="lineno">  112 </span>-- | Helper type to apply the Fuse optimization using a 'Monoid'.
+<span class="lineno">  113 </span>newtype FusedProgram = Fused
+<span class="lineno">  114 </span>  { <span class="istickedoff"><span class="decl"><span class="istickedoff">unfused</span></span></span> :: Program Optimized
+<span class="lineno">  115 </span>  } deriving (<span class="decl"><span class="nottickedoff">Show</span></span>)
+<span class="lineno">  116 </span>
+<span class="lineno">  117 </span>-- | This 'Semigroup' for 'FusedProgram' does all the fusion optimization work.
+<span class="lineno">  118 </span>-- When two contiguous optimizations can be fused into one, '&lt;&gt;' will reduce the
+<span class="lineno">  119 </span>-- size of the list in the 'FusedProgram'.
+<span class="lineno">  120 </span>--
+<span class="lineno">  121 </span>-- Examples of fusable operations:
+<span class="lineno">  122 </span>--
+<span class="lineno">  123 </span>--    - (Inc a offset) (Inc b offset) -&gt; (Inc (a+b) offset)
+<span class="lineno">  124 </span>--    - (Move 3 offset) (Move (-3) offset) -&gt; NoOp
+<span class="lineno">  125 </span>--    - (Clear offset) (Clear offset) -&gt; Clear offset
+<span class="lineno">  126 </span>--    - (Scan Up offset) (Scan _ offset') -&gt; Scan Up offset
+<span class="lineno">  127 </span>instance Semigroup FusedProgram where
+<span class="lineno">  128 </span>  <span class="decl"><span class="istickedoff">Fused (Program p1) &lt;&gt; Fused (Program p2) = Fused $ Program $ fuse p1 p2</span>
+<span class="lineno">  129 </span><span class="spaces">    </span><span class="istickedoff">where</span>
+<span class="lineno">  130 </span><span class="spaces">      </span><span class="istickedoff">fuse :: [Op] -&gt; [Op] -&gt; [Op]</span>
+<span class="lineno">  131 </span><span class="spaces">      </span><span class="istickedoff">fuse [] ops           = ops</span>
+<span class="lineno">  132 </span><span class="spaces">      </span><span class="istickedoff">fuse ops []           = ops</span>
+<span class="lineno">  133 </span><span class="spaces">      </span><span class="istickedoff">fuse [op1] (op2:more) = join op1 op2 ++ more</span>
+<span class="lineno">  134 </span><span class="spaces">      </span><span class="istickedoff">fuse (op1:more) ops2  = <span class="nottickedoff">op1 : fuse more ops2</span></span>
+<span class="lineno">  135 </span><span class="spaces">      </span><span class="istickedoff">join :: Op -&gt; Op -&gt; [Op]</span>
+<span class="lineno">  136 </span><span class="spaces">      </span><span class="istickedoff">join (Inc a n) (Inc b m)</span>
+<span class="lineno">  137 </span><span class="spaces">        </span><span class="istickedoff">| n == m = ifNotZero (flip Inc n) $ a + b</span>
+<span class="lineno">  138 </span><span class="spaces">      </span><span class="istickedoff">join (Move a) (Move b) = ifNotZero Move $ a + b</span>
+<span class="lineno">  139 </span><span class="spaces">      </span><span class="istickedoff">join (In a n) (In b m)</span>
+<span class="lineno">  140 </span><span class="spaces">        </span><span class="istickedoff">| <span class="tickonlytrue">n == m</span> = ifNotZero (flip In n) $ a + b</span>
+<span class="lineno">  141 </span><span class="spaces">      </span><span class="istickedoff">join (Out a n) (Out b m)</span>
+<span class="lineno">  142 </span><span class="spaces">        </span><span class="istickedoff">| n == m = ifNotZero (flip Out n) $ a + b</span>
+<span class="lineno">  143 </span><span class="spaces">      </span><span class="istickedoff">join (Clear n) (Clear m)</span>
+<span class="lineno">  144 </span><span class="spaces">        </span><span class="istickedoff">| n == m = [Clear n]</span>
+<span class="lineno">  145 </span><span class="spaces">      </span><span class="istickedoff">-- once a scan is found, another one won't move the pointer</span>
+<span class="lineno">  146 </span><span class="spaces">      </span><span class="istickedoff">join (Scan Up o1) (Scan _ o2)</span>
+<span class="lineno">  147 </span><span class="spaces">        </span><span class="istickedoff">| o1 == o2 = [Scan Up o1]</span>
+<span class="lineno">  148 </span><span class="spaces">      </span><span class="istickedoff">join (Scan Down o1) (Scan _ o2)</span>
+<span class="lineno">  149 </span><span class="spaces">        </span><span class="istickedoff">| o1 == o2 = [Scan Down o1]</span>
+<span class="lineno">  150 </span><span class="spaces">      </span><span class="istickedoff">join a b = [a, b]</span>
+<span class="lineno">  151 </span><span class="spaces">      </span><span class="istickedoff">ifNotZero f n = [f n | n /= 0]</span></span>
+<span class="lineno">  152 </span>
+<span class="lineno">  153 </span>-- | Use the 'Semigroup' instance and an empty program as 'mempty'.
+<span class="lineno">  154 </span>instance Monoid FusedProgram where
+<span class="lineno">  155 </span>  <span class="decl"><span class="istickedoff">mempty = Fused mempty</span></span>
+<span class="lineno">  156 </span>  <span class="decl"><span class="istickedoff">mappend = (&lt;&gt;)</span></span>
+<span class="lineno">  157 </span>
+<span class="lineno">  158 </span>-- | Apply the fusion optimization using the 'FusedProgram' 'Monoid' instance.
+<span class="lineno">  159 </span>--
+<span class="lineno">  160 </span>-- The fusion optimization consist of turning multiple instructions into one. For example
+<span class="lineno">  161 </span>-- if the original Brainfuck code contains '++++', this would be parsed as
+<span class="lineno">  162 </span>--
+<span class="lineno">  163 </span>-- @
+<span class="lineno">  164 </span>--'Program' ['Inc' 1 0, 'Inc' 1 0, 'Inc' 1 0, 'Inc' 1 0]
+<span class="lineno">  165 </span>-- @
+<span class="lineno">  166 </span>--
+<span class="lineno">  167 </span>-- but it would be fused to a single IR instruction: @Inc 4 0@.
+<span class="lineno">  168 </span>--
+<span class="lineno">  169 </span>-- &gt;&gt;&gt; fusionOpt $ Program [Inc 1 0, Inc 1 0, Inc 1 0, Inc 1 0]
+<span class="lineno">  170 </span>-- [Inc 4 0]
+<span class="lineno">  171 </span>--
+<span class="lineno">  172 </span>-- Similarly, other instructions,
+<span class="lineno">  173 </span>-- like 'Move', 'In', 'Out', 'Clear' and 'Scan' can be fused as long as the offset at which they
+<span class="lineno">  174 </span>-- must be applied is the same.
+<span class="lineno">  175 </span>--
+<span class="lineno">  176 </span>-- Non fusable operation remain unchanged:
+<span class="lineno">  177 </span>--
+<span class="lineno">  178 </span>-- &gt;&gt;&gt; fusionOpt $ Program [Inc 1 0, Inc 1 1]
+<span class="lineno">  179 </span>-- [Inc 1 0,Inc 1 1]
+<span class="lineno">  180 </span>fusionOpt :: Program Optimized -&gt; Program Optimized
+<span class="lineno">  181 </span><span class="decl"><span class="istickedoff">fusionOpt = unfused . foldMap (Fused . Program . optimizeIn) . instructions</span>
+<span class="lineno">  182 </span><span class="spaces">  </span><span class="istickedoff">where</span>
+<span class="lineno">  183 </span><span class="spaces">    </span><span class="istickedoff">optimizeIn (Loop as) = [Loop inner | not (null inner)]</span>
+<span class="lineno">  184 </span><span class="spaces">      </span><span class="istickedoff">where</span>
+<span class="lineno">  185 </span><span class="spaces">        </span><span class="istickedoff">inner = instructions $ fusionOpt $ Program as</span>
+<span class="lineno">  186 </span><span class="spaces">    </span><span class="istickedoff">optimizeIn other = [other]</span></span>
+<span class="lineno">  187 </span>
+<span class="lineno">  188 </span>-- | Helper function used to implement optimizations
+<span class="lineno">  189 </span>-- Iterate over all 'Program' instructions searching for 'Loop's. For each 'Loop'
+<span class="lineno">  190 </span>-- apply 'f'. If 'f' returns a list of new operations, replace the original loop with
+<span class="lineno">  191 </span>-- the new instructions. If 'f' returns 'Nothing', process recursively the loop instructions.
+<span class="lineno">  192 </span>liftLoop :: ([Op] -&gt; Maybe [Op]) -&gt; Program o -&gt; Program o
+<span class="lineno">  193 </span><span class="decl"><span class="istickedoff">liftLoop f = Program . (&gt;&gt;= g) . instructions</span>
+<span class="lineno">  194 </span><span class="spaces">  </span><span class="istickedoff">where</span>
+<span class="lineno">  195 </span><span class="spaces">    </span><span class="istickedoff">g :: Op -&gt; [Op]</span>
+<span class="lineno">  196 </span><span class="spaces">    </span><span class="istickedoff">g (Loop ops) =</span>
+<span class="lineno">  197 </span><span class="spaces">      </span><span class="istickedoff">fromMaybe ((: []) . Loop . instructions . liftLoop f $ Program ops) $</span>
+<span class="lineno">  198 </span><span class="spaces">      </span><span class="istickedoff">f ops</span>
+<span class="lineno">  199 </span><span class="spaces">    </span><span class="istickedoff">g other = [other]</span></span>
+<span class="lineno">  200 </span>
+<span class="lineno">  201 </span>-- | Basic optimization that turns the loop @[-]@ into a single instruction 'Clear'.
+<span class="lineno">  202 </span>-- Useful because clearing a memory position is a pretty common operation in Brainfuck and
+<span class="lineno">  203 </span>-- very expensive if treated as a loop.
+<span class="lineno">  204 </span>--
+<span class="lineno">  205 </span>-- &gt;&gt;&gt; :set -XOverloadedStrings
+<span class="lineno">  206 </span>-- &gt;&gt;&gt; Right (res, _) = inMemoryCompile defaultCompilerOptions &quot;[-]&quot;
+<span class="lineno">  207 </span>-- &gt;&gt;&gt; res
+<span class="lineno">  208 </span>-- [Clear 0]
+<span class="lineno">  209 </span>clearOpt :: Program Optimized -&gt; Program Optimized
+<span class="lineno">  210 </span><span class="decl"><span class="istickedoff">clearOpt = liftLoop onLoops</span>
+<span class="lineno">  211 </span><span class="spaces">  </span><span class="istickedoff">where</span>
+<span class="lineno">  212 </span><span class="spaces">    </span><span class="istickedoff">onLoops :: [Op] -&gt; Maybe [Op]</span>
+<span class="lineno">  213 </span><span class="spaces">    </span><span class="istickedoff">onLoops [Inc (-1) 0] = Just [Clear 0]</span>
+<span class="lineno">  214 </span><span class="spaces">    </span><span class="istickedoff">onLoops _            = Nothing</span></span>
+<span class="lineno">  215 </span>
+<span class="lineno">  216 </span>-- | Copy and multiply optimization. A very common usage of loops is to copy the value of a memory
+<span class="lineno">  217 </span>-- position to a different: @[-&gt;&gt;+&lt;&lt;]@ this will move the contents of the current memory position
+<span class="lineno">  218 </span>-- to places to the right, also clearing the original position to zero. If we change the number of @+@
+<span class="lineno">  219 </span>-- operations we get multiplication, if we have several groups of @++..@ operations we get multiple copies.
+<span class="lineno">  220 </span>-- In the general case, for example:
+<span class="lineno">  221 </span>--
+<span class="lineno">  222 </span>-- &gt;&gt;&gt; :set -XOverloadedStrings
+<span class="lineno">  223 </span>-- &gt;&gt;&gt; Right (res, _) = inMemoryCompile defaultCompilerOptions &quot;[-&gt;+&gt;++&gt;++++&lt;&lt;&lt;]&quot;
+<span class="lineno">  224 </span>-- &gt;&gt;&gt; res
+<span class="lineno">  225 </span>-- [Mul 1 0 1,Mul 2 0 2,Mul 4 0 3,Clear 0]
+<span class="lineno">  226 </span>--
+<span class="lineno">  227 </span>-- The original Brainfuck copies the current position one place to the right, doubles
+<span class="lineno">  228 </span>-- the current position two places to the right, and quadruples the current position three places to the right;
+<span class="lineno">  229 </span>-- finally zeroing the current position. With the mul optimization in this function, all that loop would be
+<span class="lineno">  230 </span>-- replaced by 4 instructions.
+<span class="lineno">  231 </span>mulOpt :: Program Optimized -&gt; Program Optimized
+<span class="lineno">  232 </span><span class="decl"><span class="istickedoff">mulOpt = liftLoop onLoops</span>
+<span class="lineno">  233 </span><span class="spaces">  </span><span class="istickedoff">where</span>
+<span class="lineno">  234 </span><span class="spaces">    </span><span class="istickedoff">onLoops :: [Op] -&gt; Maybe [Op]</span>
+<span class="lineno">  235 </span><span class="spaces">    </span><span class="istickedoff">onLoops ops = makeOp &lt;$&gt; eitherToMaybe (Parsec.parse mulP <span class="nottickedoff">&quot;&quot;</span> ops)</span>
+<span class="lineno">  236 </span><span class="spaces">      </span><span class="istickedoff">where</span>
+<span class="lineno">  237 </span><span class="spaces">        </span><span class="istickedoff">makeOp :: [(MulFactor, MemOffset)] -&gt; [Op]</span>
+<span class="lineno">  238 </span><span class="spaces">        </span><span class="istickedoff">makeOp = (++ [Clear 0]) . snd . foldl it (0, [])</span>
+<span class="lineno">  239 </span><span class="spaces">          </span><span class="istickedoff">where</span>
+<span class="lineno">  240 </span><span class="spaces">            </span><span class="istickedoff">it (totalOff, res) (fact, off) =</span>
+<span class="lineno">  241 </span><span class="spaces">              </span><span class="istickedoff">(totalOff + off, res ++ [Mul fact 0 (off + totalOff)])</span></span> -- todo very inefficient  foldr
+<span class="lineno">  242 </span>
+<span class="lineno">  243 </span>-- | Implement the scan optimization. Another common operation in Brainfuck is to search for the first zero
+<span class="lineno">  244 </span>-- in the neighboring memory, either to the right or to the left @[&gt;]@ or @[&lt;]@. These loops can be replaced
+<span class="lineno">  245 </span>-- for a more optimal search, represented as a single @'Scan' 'Up'@ or @'Scan' 'Down'@ instruction.
+<span class="lineno">  246 </span>--
+<span class="lineno">  247 </span>-- &gt;&gt;&gt; scanOpt $ Program [Loop [Move 1]]
+<span class="lineno">  248 </span>-- [Scan Up 0]
+<span class="lineno">  249 </span>scanOpt :: Program Optimized -&gt; Program Optimized
+<span class="lineno">  250 </span><span class="decl"><span class="istickedoff">scanOpt = liftLoop onLoops</span>
+<span class="lineno">  251 </span><span class="spaces">  </span><span class="istickedoff">where</span>
+<span class="lineno">  252 </span><span class="spaces">    </span><span class="istickedoff">onLoops :: [Op] -&gt; Maybe [Op]</span>
+<span class="lineno">  253 </span><span class="spaces">    </span><span class="istickedoff">onLoops [Move 1]    = Just [Scan Up 0]</span>
+<span class="lineno">  254 </span><span class="spaces">    </span><span class="istickedoff">onLoops [Move (-1)] = Just [Scan Down 0]</span>
+<span class="lineno">  255 </span><span class="spaces">    </span><span class="istickedoff">onLoops _           = Nothing</span></span>
+<span class="lineno">  256 </span>
+<span class="lineno">  257 </span>-- | Helper datastructure to implement a stateful transformation in 'offsetInstructionOpt'.
+<span class="lineno">  258 </span>data OffsetState = OffSt
+<span class="lineno">  259 </span>  { <span class="istickedoff"><span class="decl"><span class="istickedoff">stOptimized</span></span></span> :: [Op] -- ^ The optimized program so far
+<span class="lineno">  260 </span>  , <span class="nottickedoff"><span class="decl"><span class="nottickedoff">stBatch</span></span></span>     :: [Op] -- ^ The current batch of instructions being optimized (between loops)
+<span class="lineno">  261 </span>  , <span class="istickedoff"><span class="decl"><span class="istickedoff">stOffset</span></span></span>    :: MemOffset -- ^ The current offset since the last loop
+<span class="lineno">  262 </span>  } deriving (<span class="decl"><span class="nottickedoff">Show</span></span>)
+<span class="lineno">  263 </span>
+<span class="lineno">  264 </span>-- | Start state for 'offsetInstructionOpt'.
+<span class="lineno">  265 </span>emptyState :: OffsetState
+<span class="lineno">  266 </span><span class="decl"><span class="istickedoff">emptyState = OffSt [] [] 0</span></span>
+<span class="lineno">  267 </span>
+<span class="lineno">  268 </span>-- | Implement the offset instruction optimization. This is probably the most complex
+<span class="lineno">  269 </span>-- optimization implemented in the library.
+<span class="lineno">  270 </span>--
+<span class="lineno">  271 </span>-- In streams of instructions between loops, there is no need to keep updating the current position
+<span class="lineno">  272 </span>-- if we can keep track of where the different operations should be applied. This is a trade-off
+<span class="lineno">  273 </span>-- of time (not updating the pointer) by space (keeping track of the offset in every operation).
+<span class="lineno">  274 </span>-- For example the following unoptimized code
+<span class="lineno">  275 </span>--
+<span class="lineno">  276 </span>--
+<span class="lineno">  277 </span>-- &gt;&gt;&gt; offsetInstructionOpt  $ Program [Loop [], Move 1, Inc 1 0, Move 2, Clear 0, Mul 2 0 1, Loop []]
+<span class="lineno">  278 </span>-- [Loop [],Inc 1 1,Clear 3,Mul 2 3 1,Move 3,Loop []]
+<span class="lineno">  279 </span>--
+<span class="lineno">  280 </span>-- And the optimization eliminated one 'Move' instruction. In general, for larger programs the gain
+<span class="lineno">  281 </span>-- will be more noticeable.
+<span class="lineno">  282 </span>--
+<span class="lineno">  283 </span>-- An important detail to take into account is that 'Scan' operations break the stream of operations
+<span class="lineno">  284 </span>-- that can be optimized together, and turn the accumulated offset back to zero:
+<span class="lineno">  285 </span>--
+<span class="lineno">  286 </span>-- &gt;&gt;&gt; offsetInstructionOpt  $ Program [Loop [], Move 1, Inc 1 0, Scan Up 0, Inc 0 2, Loop []]
+<span class="lineno">  287 </span>-- [Loop [],Inc 1 1,Scan Up 1,Inc 0 2,Loop []]
+<span class="lineno">  288 </span>offsetInstructionOpt :: Program Optimized -&gt; Program Optimized
+<span class="lineno">  289 </span><span class="decl"><span class="istickedoff">offsetInstructionOpt -- We implement this as a stateful computation for code clarity</span>
+<span class="lineno">  290 </span><span class="spaces"> </span><span class="istickedoff">=</span>
+<span class="lineno">  291 </span><span class="spaces">  </span><span class="istickedoff">Program .</span>
+<span class="lineno">  292 </span><span class="spaces">  </span><span class="istickedoff">stOptimized .</span>
+<span class="lineno">  293 </span><span class="spaces">  </span><span class="istickedoff">(`execState` emptyState) .</span>
+<span class="lineno">  294 </span><span class="spaces">  </span><span class="istickedoff">(*&gt; finishLastBatch) . traverse_ processOp . instructions</span>
+<span class="lineno">  295 </span><span class="spaces">  </span><span class="istickedoff">where</span>
+<span class="lineno">  296 </span><span class="spaces">    </span><span class="istickedoff">processOp :: Op -&gt; State OffsetState ()</span>
+<span class="lineno">  297 </span><span class="spaces">    </span><span class="istickedoff">processOp (Loop l) = do</span>
+<span class="lineno">  298 </span><span class="spaces">      </span><span class="istickedoff">let newLoop = Loop (instructions $ offsetInstructionOpt (Program l))</span>
+<span class="lineno">  299 </span><span class="spaces">      </span><span class="istickedoff">finishBatch</span>
+<span class="lineno">  300 </span><span class="spaces">      </span><span class="istickedoff">modify $ \s@OffSt {..} -&gt; s {stOptimized = newLoop : stOptimized}</span>
+<span class="lineno">  301 </span><span class="spaces">    </span><span class="istickedoff">processOp (Move n) = get &gt;&gt;= \s -&gt; put s {stOffset = stOffset s + n}</span>
+<span class="lineno">  302 </span><span class="spaces">    </span><span class="istickedoff">processOp (Inc n off) = add off (Inc n)</span>
+<span class="lineno">  303 </span><span class="spaces">    </span><span class="istickedoff">processOp (In n off) = add off (In n)</span>
+<span class="lineno">  304 </span><span class="spaces">    </span><span class="istickedoff">processOp (Out n off) = add off (Out n)</span>
+<span class="lineno">  305 </span><span class="spaces">    </span><span class="istickedoff">processOp (Clear off) = add off Clear</span>
+<span class="lineno">  306 </span><span class="spaces">    </span><span class="istickedoff">processOp (Mul factor from to) = add from (\o -&gt; Mul factor o to)</span>
+<span class="lineno">  307 </span><span class="spaces">    </span><span class="istickedoff">processOp (Scan d off) = do</span>
+<span class="lineno">  308 </span><span class="spaces">      </span><span class="istickedoff">OffSt {..} &lt;- get</span>
+<span class="lineno">  309 </span><span class="spaces">      </span><span class="istickedoff">put</span>
+<span class="lineno">  310 </span><span class="spaces">        </span><span class="istickedoff">OffSt</span>
+<span class="lineno">  311 </span><span class="spaces">          </span><span class="istickedoff">{ stOffset = 0</span>
+<span class="lineno">  312 </span><span class="spaces">          </span><span class="istickedoff">, stOptimized = stOptimized</span>
+<span class="lineno">  313 </span><span class="spaces">          </span><span class="istickedoff">, stBatch = Scan d (off + stOffset) : stBatch</span>
+<span class="lineno">  314 </span><span class="spaces">          </span><span class="istickedoff">}</span>
+<span class="lineno">  315 </span><span class="spaces">    </span><span class="istickedoff">add :: MemOffset -&gt; (MemOffset -&gt; Op) -&gt; State OffsetState ()</span>
+<span class="lineno">  316 </span><span class="spaces">    </span><span class="istickedoff">add off op =</span>
+<span class="lineno">  317 </span><span class="spaces">      </span><span class="istickedoff">get &gt;&gt;= \s@OffSt {..} -&gt; put s {stBatch = op (off + stOffset) : stBatch}</span>
+<span class="lineno">  318 </span><span class="spaces">    </span><span class="istickedoff">finishBatch :: State OffsetState ()</span>
+<span class="lineno">  319 </span><span class="spaces">    </span><span class="istickedoff">finishBatch = do</span>
+<span class="lineno">  320 </span><span class="spaces">      </span><span class="istickedoff">s@OffSt {..} &lt;- get</span>
+<span class="lineno">  321 </span><span class="spaces">      </span><span class="istickedoff">let batch =</span>
+<span class="lineno">  322 </span><span class="spaces">            </span><span class="istickedoff">if stOffset /= 0</span>
+<span class="lineno">  323 </span><span class="spaces">              </span><span class="istickedoff">then Move stOffset : stBatch</span>
+<span class="lineno">  324 </span><span class="spaces">              </span><span class="istickedoff">else stBatch</span>
+<span class="lineno">  325 </span><span class="spaces">      </span><span class="istickedoff">put s {stBatch = [], stOffset = 0, stOptimized = batch ++ stOptimized}</span>
+<span class="lineno">  326 </span><span class="spaces">    </span><span class="istickedoff">finishLastBatch :: State OffsetState ()</span>
+<span class="lineno">  327 </span><span class="spaces">    </span><span class="istickedoff">finishLastBatch = do</span>
+<span class="lineno">  328 </span><span class="spaces">      </span><span class="istickedoff">finishBatch</span>
+<span class="lineno">  329 </span><span class="spaces">      </span><span class="istickedoff">modify $ \s@OffSt {..} -&gt; s {stOptimized = reverse stOptimized}</span></span>
+<span class="lineno">  330 </span>
+<span class="lineno">  331 </span>-- * Loading Compiled Code
+<span class="lineno">  332 </span>-- | Load a compiled program from 'saveCompilerOutput' output.
+<span class="lineno">  333 </span>load :: ByteString -&gt; Program Optimized
+<span class="lineno">  334 </span><span class="decl"><span class="nottickedoff">load = B.decode</span></span>
+<span class="lineno">  335 </span>
+<span class="lineno">  336 </span>-- | Load a compiled program saved with 'saveCompilerOutput'.
+<span class="lineno">  337 </span>loadFile :: FilePath -&gt; IO (Program Optimized)
+<span class="lineno">  338 </span><span class="decl"><span class="istickedoff">loadFile = B.decodeFile</span></span>
+<span class="lineno">  339 </span>
+<span class="lineno">  340 </span>-- * Compiler Flags
+<span class="lineno">  341 </span>-- | Command line flags to the Brainfuck compiler
+<span class="lineno">  342 </span>data CompilerOptions = CompilerOptions
+<span class="lineno">  343 </span>  { <span class="nottickedoff"><span class="decl"><span class="nottickedoff">cOptsOut</span></span></span>                            :: Maybe FilePath -- ^ Where to put the compiled output, if 'Nothing' use the input basename with bfc extension
+<span class="lineno">  344 </span>  , <span class="nottickedoff"><span class="decl"><span class="nottickedoff">cOptsFusionOptimization</span></span></span>             :: Bool -- ^ Enable fusion optimization
+<span class="lineno">  345 </span>  , <span class="nottickedoff"><span class="decl"><span class="nottickedoff">cOptsClearLoopOptimization</span></span></span>          :: Bool -- ^ Enable clear loop optimization
+<span class="lineno">  346 </span>  , <span class="nottickedoff"><span class="decl"><span class="nottickedoff">cOptsMulOptimization</span></span></span>                :: Bool -- ^ Enable mul loop optimization
+<span class="lineno">  347 </span>  , <span class="nottickedoff"><span class="decl"><span class="nottickedoff">cOptsScanOptimization</span></span></span>               :: Bool -- ^ Enable scan loop optimization
+<span class="lineno">  348 </span>  , <span class="nottickedoff"><span class="decl"><span class="nottickedoff">cOptsOffsetInstructionsOptimization</span></span></span> :: Bool -- ^ Enable offset instructions optimization
+<span class="lineno">  349 </span>  , <span class="nottickedoff"><span class="decl"><span class="nottickedoff">cOptsVerbose</span></span></span>                        :: Bool -- ^ Output more debugging information
+<span class="lineno">  350 </span>  , <span class="nottickedoff"><span class="decl"><span class="nottickedoff">cOptsSource</span></span></span>                         :: FilePath -- ^ Input source to the compiler, this should be Brainfuck code
+<span class="lineno">  351 </span>  } deriving (<span class="decl"><span class="nottickedoff">Show</span></span>)
+<span class="lineno">  352 </span>
+<span class="lineno">  353 </span>optionsP :: Parser CompilerOptions
+<span class="lineno">  354 </span><span class="decl"><span class="istickedoff">optionsP =</span>
+<span class="lineno">  355 </span><span class="spaces">  </span><span class="istickedoff">(\output disableAll fusion clear mul scan offset verbose source -&gt;</span>
+<span class="lineno">  356 </span><span class="spaces">     </span><span class="istickedoff">CompilerOptions</span>
+<span class="lineno">  357 </span><span class="spaces">       </span><span class="istickedoff">{ cOptsOut = output</span>
+<span class="lineno">  358 </span><span class="spaces">       </span><span class="istickedoff">, cOptsFusionOptimization = not disableAll || <span class="nottickedoff">fusion</span></span>
+<span class="lineno">  359 </span><span class="spaces">       </span><span class="istickedoff">, cOptsClearLoopOptimization = not disableAll || <span class="nottickedoff">clear</span></span>
+<span class="lineno">  360 </span><span class="spaces">       </span><span class="istickedoff">, cOptsMulOptimization = not disableAll || <span class="nottickedoff">mul</span></span>
+<span class="lineno">  361 </span><span class="spaces">       </span><span class="istickedoff">, cOptsScanOptimization = not disableAll || <span class="nottickedoff">scan</span></span>
+<span class="lineno">  362 </span><span class="spaces">       </span><span class="istickedoff">, cOptsOffsetInstructionsOptimization = not disableAll || <span class="nottickedoff">offset</span></span>
+<span class="lineno">  363 </span><span class="spaces">       </span><span class="istickedoff">, cOptsVerbose = verbose</span>
+<span class="lineno">  364 </span><span class="spaces">       </span><span class="istickedoff">, cOptsSource = source</span>
+<span class="lineno">  365 </span><span class="spaces">       </span><span class="istickedoff">}) &lt;$&gt;</span>
+<span class="lineno">  366 </span><span class="spaces">  </span><span class="istickedoff">optional</span>
+<span class="lineno">  367 </span><span class="spaces">    </span><span class="istickedoff">(option</span>
+<span class="lineno">  368 </span><span class="spaces">       </span><span class="istickedoff">str</span>
+<span class="lineno">  369 </span><span class="spaces">       </span><span class="istickedoff">(long &quot;output&quot; &lt;&gt; short 'o' &lt;&gt; metavar <span class="nottickedoff">&quot;OUT&quot;</span> &lt;&gt;</span>
+<span class="lineno">  370 </span><span class="spaces">        </span><span class="istickedoff">help <span class="nottickedoff">&quot;Compiled output path&quot;</span>)) &lt;*&gt;</span>
+<span class="lineno">  371 </span><span class="spaces">  </span><span class="istickedoff">switch</span>
+<span class="lineno">  372 </span><span class="spaces">    </span><span class="istickedoff">(long <span class="nottickedoff">&quot;disable-all-optimizations&quot;</span> &lt;&gt; short <span class="nottickedoff">'d'</span> &lt;&gt;</span>
+<span class="lineno">  373 </span><span class="spaces">     </span><span class="istickedoff">help <span class="nottickedoff">&quot;Disable all optimizations&quot;</span>) &lt;*&gt;</span>
+<span class="lineno">  374 </span><span class="spaces">  </span><span class="istickedoff">switch</span>
+<span class="lineno">  375 </span><span class="spaces">    </span><span class="istickedoff">(long <span class="nottickedoff">&quot;fusion&quot;</span> &lt;&gt;</span>
+<span class="lineno">  376 </span><span class="spaces">     </span><span class="istickedoff">help</span>
+<span class="lineno">  377 </span><span class="spaces">       </span><span class="istickedoff"><span class="nottickedoff">&quot;Reenable fusion optimization (turn multiple + or &gt; into a single operation)&quot;</span>) &lt;*&gt;</span>
+<span class="lineno">  378 </span><span class="spaces">  </span><span class="istickedoff">switch</span>
+<span class="lineno">  379 </span><span class="spaces">    </span><span class="istickedoff">(long <span class="nottickedoff">&quot;clear&quot;</span> &lt;&gt;</span>
+<span class="lineno">  380 </span><span class="spaces">     </span><span class="istickedoff">help <span class="nottickedoff">&quot;Reenable clear loop optimization (turn [-] into a single operation)&quot;</span>) &lt;*&gt;</span>
+<span class="lineno">  381 </span><span class="spaces">  </span><span class="istickedoff">switch</span>
+<span class="lineno">  382 </span><span class="spaces">    </span><span class="istickedoff">(long <span class="nottickedoff">&quot;mul&quot;</span> &lt;&gt;</span>
+<span class="lineno">  383 </span><span class="spaces">     </span><span class="istickedoff">help</span>
+<span class="lineno">  384 </span><span class="spaces">       </span><span class="istickedoff"><span class="nottickedoff">&quot;Reenable mul loop optimization (turn [-&gt;++&gt;+++&lt;&lt;] into [Mul(1, 2) Mul(2,3)] Clear operations)&quot;</span>) &lt;*&gt;</span>
+<span class="lineno">  385 </span><span class="spaces">  </span><span class="istickedoff">switch</span>
+<span class="lineno">  386 </span><span class="spaces">    </span><span class="istickedoff">(long <span class="nottickedoff">&quot;scan&quot;</span> &lt;&gt;</span>
+<span class="lineno">  387 </span><span class="spaces">     </span><span class="istickedoff">help <span class="nottickedoff">&quot;Reenable scan loop optimization (turn [&gt;] into ScanR operation)&quot;</span>) &lt;*&gt;</span>
+<span class="lineno">  388 </span><span class="spaces">  </span><span class="istickedoff">switch</span>
+<span class="lineno">  389 </span><span class="spaces">    </span><span class="istickedoff">(long <span class="nottickedoff">&quot;offset&quot;</span> &lt;&gt;</span>
+<span class="lineno">  390 </span><span class="spaces">     </span><span class="istickedoff">help</span>
+<span class="lineno">  391 </span><span class="spaces">       </span><span class="istickedoff"><span class="nottickedoff">&quot;Reenable offset instructions optimization (turn &gt;&gt;+&gt;-&gt;&gt; into Inc 1 2, Inc (-1) 1, Move 1, Move 1, Move 1, Move 1, Move 1, operation)&quot;</span>) &lt;*&gt;</span>
+<span class="lineno">  392 </span><span class="spaces">  </span><span class="istickedoff">switch</span>
+<span class="lineno">  393 </span><span class="spaces">    </span><span class="istickedoff">(long <span class="nottickedoff">&quot;verbose&quot;</span> &lt;&gt; short <span class="nottickedoff">'v'</span> &lt;&gt; help <span class="nottickedoff">&quot;Output more debugging information&quot;</span>) &lt;*&gt;</span>
+<span class="lineno">  394 </span><span class="spaces">  </span><span class="istickedoff">argument str (metavar <span class="nottickedoff">&quot;SRC&quot;</span> &lt;&gt; help <span class="nottickedoff">&quot;Input source code file&quot;</span>)</span></span>
+<span class="lineno">  395 </span>
+<span class="lineno">  396 </span>options :: ParserInfo CompilerOptions
+<span class="lineno">  397 </span><span class="decl"><span class="istickedoff">options =</span>
+<span class="lineno">  398 </span><span class="spaces">  </span><span class="istickedoff">info</span>
+<span class="lineno">  399 </span><span class="spaces">    </span><span class="istickedoff">(optionsP &lt;**&gt; helper)</span>
+<span class="lineno">  400 </span><span class="spaces">    </span><span class="istickedoff">(fullDesc &lt;&gt; progDesc <span class="nottickedoff">&quot;Compile Brainfuck code in SRC file&quot;</span> &lt;&gt;</span>
+<span class="lineno">  401 </span><span class="spaces">     </span><span class="istickedoff">header <span class="nottickedoff">&quot;An optimizing Brainfuck compiler and evaluator&quot;</span>)</span></span>
+<span class="lineno">  402 </span>
+<span class="lineno">  403 </span>-- | Default compiler options: all optimizations, not verbose, no input or output files.
+<span class="lineno">  404 </span>defaultCompilerOptions :: CompilerOptions
+<span class="lineno">  405 </span><span class="decl"><span class="istickedoff">defaultCompilerOptions =</span>
+<span class="lineno">  406 </span><span class="spaces">  </span><span class="istickedoff">CompilerOptions</span>
+<span class="lineno">  407 </span><span class="spaces">    </span><span class="istickedoff">{ cOptsOut = <span class="nottickedoff">Nothing</span></span>
+<span class="lineno">  408 </span><span class="spaces">    </span><span class="istickedoff">, cOptsFusionOptimization = True</span>
+<span class="lineno">  409 </span><span class="spaces">    </span><span class="istickedoff">, cOptsClearLoopOptimization = True</span>
+<span class="lineno">  410 </span><span class="spaces">    </span><span class="istickedoff">, cOptsMulOptimization = True</span>
+<span class="lineno">  411 </span><span class="spaces">    </span><span class="istickedoff">, cOptsScanOptimization = True</span>
+<span class="lineno">  412 </span><span class="spaces">    </span><span class="istickedoff">, cOptsOffsetInstructionsOptimization = True</span>
+<span class="lineno">  413 </span><span class="spaces">    </span><span class="istickedoff">, cOptsVerbose = <span class="nottickedoff">False</span></span>
+<span class="lineno">  414 </span><span class="spaces">    </span><span class="istickedoff">, cOptsSource = <span class="nottickedoff">&quot;&quot;</span></span>
+<span class="lineno">  415 </span><span class="spaces">    </span><span class="istickedoff">}</span></span>
+<span class="lineno">  416 </span>
+<span class="lineno">  417 </span>-- | Compiler options: all optimizations off.
+<span class="lineno">  418 </span>noOptimizationCompilerOptions :: CompilerOptions
+<span class="lineno">  419 </span><span class="decl"><span class="istickedoff">noOptimizationCompilerOptions =</span>
+<span class="lineno">  420 </span><span class="spaces">  </span><span class="istickedoff">CompilerOptions</span>
+<span class="lineno">  421 </span><span class="spaces">    </span><span class="istickedoff">{ cOptsOut = <span class="nottickedoff">Nothing</span></span>
+<span class="lineno">  422 </span><span class="spaces">    </span><span class="istickedoff">, cOptsFusionOptimization = False</span>
+<span class="lineno">  423 </span><span class="spaces">    </span><span class="istickedoff">, cOptsClearLoopOptimization = False</span>
+<span class="lineno">  424 </span><span class="spaces">    </span><span class="istickedoff">, cOptsMulOptimization = False</span>
+<span class="lineno">  425 </span><span class="spaces">    </span><span class="istickedoff">, cOptsScanOptimization = False</span>
+<span class="lineno">  426 </span><span class="spaces">    </span><span class="istickedoff">, cOptsOffsetInstructionsOptimization = False</span>
+<span class="lineno">  427 </span><span class="spaces">    </span><span class="istickedoff">, cOptsVerbose = <span class="nottickedoff">False</span></span>
+<span class="lineno">  428 </span><span class="spaces">    </span><span class="istickedoff">, cOptsSource = <span class="nottickedoff">&quot;&quot;</span></span>
+<span class="lineno">  429 </span><span class="spaces">    </span><span class="istickedoff">}</span></span>
+<span class="lineno">  430 </span>
+<span class="lineno">  431 </span>-- | Parse a list of command line arguments
+<span class="lineno">  432 </span>parsePure :: [String] -&gt; ParserResult CompilerOptions
+<span class="lineno">  433 </span><span class="decl"><span class="istickedoff">parsePure = execParserPure defaultPrefs options</span></span>
+<span class="lineno">  434 </span>
+<span class="lineno">  435 </span>-- | Parse a list of command line arguments printing errors to the stderr
+<span class="lineno">  436 </span>unsafeParse :: [String] -&gt; IO CompilerOptions
+<span class="lineno">  437 </span><span class="decl"><span class="istickedoff">unsafeParse = handleParseResult . parsePure</span></span>
+<span class="lineno">  438 </span>
+<span class="lineno">  439 </span>-- | Parse command line arguments printing errors to the stderr
+<span class="lineno">  440 </span>parse :: IO CompilerOptions
+<span class="lineno">  441 </span><span class="decl"><span class="nottickedoff">parse = getArgs &gt;&gt;= unsafeParse</span></span>
+<span class="lineno">  442 </span>
+<span class="lineno">  443 </span>----------------------- implementation details ----------------------
+<span class="lineno">  444 </span>-- * Implementation Detail: Parsing Lists of Instructions
+<span class="lineno">  445 </span>-- | This parser is used to implement the mul optimization. See 'mulOpt'.
+<span class="lineno">  446 </span>type ProgramParser a = Parsec.ParsecT [Op] () Identity a
+<span class="lineno">  447 </span>
+<span class="lineno">  448 </span>-- | Parse successfully if the token satisfies the predicate.
+<span class="lineno">  449 </span>satisfy' :: Show t =&gt; (t -&gt; Bool) -&gt; Parsec.ParsecT [t] () Identity t
+<span class="lineno">  450 </span><span class="decl"><span class="istickedoff">satisfy' predicate = Parsec.token <span class="nottickedoff">showTok</span> posFromTok testTok</span>
+<span class="lineno">  451 </span><span class="spaces">  </span><span class="istickedoff">where</span>
+<span class="lineno">  452 </span><span class="spaces">    </span><span class="istickedoff"><span class="nottickedoff">showTok t = show t</span></span>
+<span class="lineno">  453 </span><span class="spaces">    </span><span class="istickedoff">posFromTok _ = initialPos <span class="nottickedoff">&quot;&quot;</span></span>
+<span class="lineno">  454 </span><span class="spaces">    </span><span class="istickedoff">testTok t =</span>
+<span class="lineno">  455 </span><span class="spaces">      </span><span class="istickedoff">if predicate t</span>
+<span class="lineno">  456 </span><span class="spaces">        </span><span class="istickedoff">then Just t</span>
+<span class="lineno">  457 </span><span class="spaces">        </span><span class="istickedoff">else Nothing</span></span>
+<span class="lineno">  458 </span>
+<span class="lineno">  459 </span>-- | Parse movement to the right (\&gt;), returning the offset value.
+<span class="lineno">  460 </span>--
+<span class="lineno">  461 </span>-- &gt;&gt;&gt; Parsec.parse mrightP &quot;&quot; [Move 3]
+<span class="lineno">  462 </span>-- Right 3
+<span class="lineno">  463 </span>--
+<span class="lineno">  464 </span>-- &gt;&gt;&gt; Data.Either.isLeft $ Parsec.parse mrightP &quot;&quot; [Move (-1)]
+<span class="lineno">  465 </span>-- True
+<span class="lineno">  466 </span>mrightP :: ProgramParser MemOffset
+<span class="lineno">  467 </span><span class="decl"><span class="istickedoff">mrightP =</span>
+<span class="lineno">  468 </span><span class="spaces">  </span><span class="istickedoff">satisfy' isRight &lt;&amp;&gt; \case</span>
+<span class="lineno">  469 </span><span class="spaces">    </span><span class="istickedoff">Move n -&gt; n</span>
+<span class="lineno">  470 </span><span class="spaces">    </span><span class="istickedoff">_ -&gt; <span class="nottickedoff">undefined</span></span></span>
+<span class="lineno">  471 </span>
+<span class="lineno">  472 </span>-- | Parsemovement to the left (\&lt;), returning the offset value.
+<span class="lineno">  473 </span>--
+<span class="lineno">  474 </span>-- &gt;&gt;&gt; Parsec.parse mleftP &quot;&quot; [Move (-3)]
+<span class="lineno">  475 </span>-- Right 3
+<span class="lineno">  476 </span>--
+<span class="lineno">  477 </span>-- &gt;&gt;&gt; Data.Either.isLeft $ Parsec.parse mleftP &quot;&quot; [Move 1]
+<span class="lineno">  478 </span>-- True
+<span class="lineno">  479 </span>mleftP :: ProgramParser MemOffset
+<span class="lineno">  480 </span><span class="decl"><span class="istickedoff">mleftP =</span>
+<span class="lineno">  481 </span><span class="spaces">  </span><span class="istickedoff">satisfy' isLeft &lt;&amp;&gt; \case</span>
+<span class="lineno">  482 </span><span class="spaces">    </span><span class="istickedoff">Move n -&gt; (negate n)</span>
+<span class="lineno">  483 </span><span class="spaces">    </span><span class="istickedoff">_ -&gt; <span class="nottickedoff">undefined</span></span></span>
+<span class="lineno">  484 </span>
+<span class="lineno">  485 </span>-- | Parse increment, returning total increment.
+<span class="lineno">  486 </span>--
+<span class="lineno">  487 </span>-- &gt;&gt;&gt; Parsec.parse plusP &quot;&quot; [Inc 3 0]
+<span class="lineno">  488 </span>-- Right 3
+<span class="lineno">  489 </span>--
+<span class="lineno">  490 </span>-- &gt;&gt;&gt; Data.Either.isLeft $ Parsec.parse plusP &quot;&quot; [Inc (-2) 0]
+<span class="lineno">  491 </span>-- True
+<span class="lineno">  492 </span>plusP :: ProgramParser Int
+<span class="lineno">  493 </span><span class="decl"><span class="istickedoff">plusP =</span>
+<span class="lineno">  494 </span><span class="spaces">  </span><span class="istickedoff">satisfy' isPlus &lt;&amp;&gt; \case</span>
+<span class="lineno">  495 </span><span class="spaces">    </span><span class="istickedoff">Inc n 0 -&gt; n</span>
+<span class="lineno">  496 </span><span class="spaces">    </span><span class="istickedoff">_ -&gt; <span class="nottickedoff">undefined</span></span></span>
+<span class="lineno">  497 </span>
+<span class="lineno">  498 </span>-- | Parse decrement, returning total decrement.
+<span class="lineno">  499 </span>--
+<span class="lineno">  500 </span>-- &gt;&gt;&gt; Parsec.parse minusP &quot;&quot; [Inc (-3) 0]
+<span class="lineno">  501 </span>-- Right 3
+<span class="lineno">  502 </span>--
+<span class="lineno">  503 </span>-- &gt;&gt;&gt; Data.Either.isLeft $ Parsec.parse minusP &quot;&quot; [Inc 2 0]
+<span class="lineno">  504 </span>-- True
+<span class="lineno">  505 </span>minusP :: ProgramParser Int
+<span class="lineno">  506 </span><span class="decl"><span class="istickedoff">minusP =</span>
+<span class="lineno">  507 </span><span class="spaces">  </span><span class="istickedoff">satisfy' isMinus &lt;&amp;&gt; <span class="nottickedoff">\case</span></span>
+<span class="lineno">  508 </span><span class="spaces">    </span><span class="istickedoff"><span class="nottickedoff">Inc n 0 -&gt; (negate n)</span></span>
+<span class="lineno">  509 </span><span class="spaces">    </span><span class="istickedoff"><span class="nottickedoff">_ -&gt; undefined</span></span></span>
+<span class="lineno">  510 </span>
+<span class="lineno">  511 </span>-- | Sum the result of a parser applied repeatedly
+<span class="lineno">  512 </span>--
+<span class="lineno">  513 </span>-- &gt;&gt;&gt; Parsec.parse (summedP plusP) &quot;&quot; [Inc 3 0, Inc 1 0, Inc (-4) 0]
+<span class="lineno">  514 </span>-- Right 4
+<span class="lineno">  515 </span>summedP :: Num n =&gt; ProgramParser n -&gt; ProgramParser n
+<span class="lineno">  516 </span><span class="decl"><span class="istickedoff">summedP = fmap sum . Parsec.many1</span></span>
+<span class="lineno">  517 </span>
+<span class="lineno">  518 </span>-- | Full multiple copy/multiply operation parser. Returns the set of factors and relative, incremental offsets.
+<span class="lineno">  519 </span>--
+<span class="lineno">  520 </span>-- &gt;&gt;&gt; Parsec.parse mulP &quot;&quot; [Inc (-1) 0, Move 1, Inc 2 0, Move 3, Inc 1 0, Move (-4)]
+<span class="lineno">  521 </span>-- Right [(2,1),(1,3)]
+<span class="lineno">  522 </span>mulP :: ProgramParser [(MulFactor, MemOffset)]
+<span class="lineno">  523 </span><span class="decl"><span class="istickedoff">mulP = do</span>
+<span class="lineno">  524 </span><span class="spaces">  </span><span class="istickedoff">_ &lt;- minusP</span>
+<span class="lineno">  525 </span><span class="spaces">  </span><span class="istickedoff">copies &lt;- Parsec.many1 shiftFactorP</span>
+<span class="lineno">  526 </span><span class="spaces">  </span><span class="istickedoff">let totalShift = sum $ map fst copies</span>
+<span class="lineno">  527 </span><span class="spaces">  </span><span class="istickedoff">back &lt;- summedP mleftP</span>
+<span class="lineno">  528 </span><span class="spaces">  </span><span class="istickedoff">Parsec.eof</span>
+<span class="lineno">  529 </span><span class="spaces">  </span><span class="istickedoff">if <span class="tickonlytrue">back == coerce totalShift</span></span>
+<span class="lineno">  530 </span><span class="spaces">    </span><span class="istickedoff">then return (fmap swap copies)</span>
+<span class="lineno">  531 </span><span class="spaces">    </span><span class="istickedoff">else <span class="nottickedoff">Parsec.unexpected &quot;number of left returns to close the loop&quot;</span></span>
+<span class="lineno">  532 </span><span class="spaces">  </span><span class="istickedoff">where</span>
+<span class="lineno">  533 </span><span class="spaces">    </span><span class="istickedoff">shiftFactorP = (,) &lt;$&gt; summedP mrightP &lt;*&gt; fmap MulFactor (summedP plusP)</span></span>
+<span class="lineno">  534 </span>
+<span class="lineno">  535 </span>-- | Is the instruction a right movement?
+<span class="lineno">  536 </span>isRight :: Op -&gt; Bool
+<span class="lineno">  537 </span><span class="decl"><span class="istickedoff">isRight (Move n)</span>
+<span class="lineno">  538 </span><span class="spaces">  </span><span class="istickedoff">| n &gt; 0 = True</span>
+<span class="lineno">  539 </span><span class="spaces"></span><span class="istickedoff">isRight _ = False</span></span>
+<span class="lineno">  540 </span>
+<span class="lineno">  541 </span>-- | Is the instruction a left movement?
+<span class="lineno">  542 </span>isLeft :: Op -&gt; Bool
+<span class="lineno">  543 </span><span class="decl"><span class="istickedoff">isLeft (Move n)</span>
+<span class="lineno">  544 </span><span class="spaces">  </span><span class="istickedoff">| <span class="tickonlytrue">n &lt; 0</span> = True</span>
+<span class="lineno">  545 </span><span class="spaces"></span><span class="istickedoff">isLeft _ = False</span></span>
+<span class="lineno">  546 </span>
+<span class="lineno">  547 </span>-- | Is the instruction an increment?
+<span class="lineno">  548 </span>isPlus :: Op -&gt; Bool
+<span class="lineno">  549 </span><span class="decl"><span class="istickedoff">isPlus (Inc n 0)</span>
+<span class="lineno">  550 </span><span class="spaces">  </span><span class="istickedoff">| n &gt; 0 = True</span>
+<span class="lineno">  551 </span><span class="spaces"></span><span class="istickedoff">isPlus _ = False</span></span>
+<span class="lineno">  552 </span>
+<span class="lineno">  553 </span>-- | Is the instruction a decrement?
+<span class="lineno">  554 </span>isMinus :: Op -&gt; Bool
+<span class="lineno">  555 </span><span class="decl"><span class="istickedoff">isMinus (Inc n 0)</span>
+<span class="lineno">  556 </span><span class="spaces">  </span><span class="istickedoff">| n &lt; 0 = True</span>
+<span class="lineno">  557 </span><span class="spaces"></span><span class="istickedoff">isMinus _ = False</span></span>
+
+</pre>
+</body>
+</html>

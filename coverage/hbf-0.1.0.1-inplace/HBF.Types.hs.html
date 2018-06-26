@@ -1,0 +1,216 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<style type="text/css">
+span.lineno { color: white; background: #aaaaaa; border-right: solid white 12px }
+span.nottickedoff { background: yellow}
+span.istickedoff { background: white }
+span.tickonlyfalse { margin: -1px; border: 1px solid #f20913; background: #f20913 }
+span.tickonlytrue  { margin: -1px; border: 1px solid #60de51; background: #60de51 }
+span.funcount { font-size: small; color: orange; z-index: 2; position: absolute; right: 20 }
+span.decl { font-weight: bold }
+span.spaces    { background: white }
+</style>
+</head>
+<body>
+<pre>
+<span class="decl"><span class="nottickedoff">never executed</span> <span class="tickonlytrue">always true</span> <span class="tickonlyfalse">always false</span></span>
+</pre>
+<pre>
+<span class="lineno">    1 </span>{-# LANGUAGE DeriveAnyClass             #-}
+<span class="lineno">    2 </span>{-# LANGUAGE DeriveGeneric              #-}
+<span class="lineno">    3 </span>{-# LANGUAGE DerivingStrategies         #-}
+<span class="lineno">    4 </span>{-# LANGUAGE FlexibleInstances          #-}
+<span class="lineno">    5 </span>{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+<span class="lineno">    6 </span>{-# LANGUAGE InstanceSigs               #-}
+<span class="lineno">    7 </span>{-# LANGUAGE RecordWildCards            #-}
+<span class="lineno">    8 </span>
+<span class="lineno">    9 </span>{-|
+<span class="lineno">   10 </span>Description : Basic types for the Brainfuck compiler and virtual machine.
+<span class="lineno">   11 </span>Copyright   : (c) Sebastian Galkin, 2018
+<span class="lineno">   12 </span>License     : GPL-3
+<span class="lineno">   13 </span>
+<span class="lineno">   14 </span>All the basic types for the Brainfuck compiler and VM are defined in this module.
+<span class="lineno">   15 </span>This includes the different instructions ('Op's), the 'Program' and the 'MachineIO'.
+<span class="lineno">   16 </span>-}
+<span class="lineno">   17 </span>module HBF.Types where
+<span class="lineno">   18 </span>
+<span class="lineno">   19 </span>import           Control.DeepSeq                (NFData)
+<span class="lineno">   20 </span>import           Control.Exception              (catch)
+<span class="lineno">   21 </span>import           Control.Monad.Trans.State.Lazy (StateT, get, modify, put)
+<span class="lineno">   22 </span>import           Data.Binary                    (Binary)
+<span class="lineno">   23 </span>import           Data.Char                      (chr, ord)
+<span class="lineno">   24 </span>import           Data.Int                       (Int8)
+<span class="lineno">   25 </span>import           Data.List                      (uncons)
+<span class="lineno">   26 </span>import           Data.Semigroup                 (Semigroup (..))
+<span class="lineno">   27 </span>import           GHC.Generics                   (Generic)
+<span class="lineno">   28 </span>import           System.IO                      (hFlush, stdout)
+<span class="lineno">   29 </span>
+<span class="lineno">   30 </span>-- * Virtual Machine Instructions
+<span class="lineno">   31 </span>-- | Operations or instructions in the Brainfuck virtual machine.
+<span class="lineno">   32 </span>--
+<span class="lineno">   33 </span>-- Some of these operations are \&quot;native\&quot; to Brainfuck and others are the result of optimization during compilation.
+<span class="lineno">   34 </span>-- The compiler generates these types of instructions and the virtual machine can execute them.
+<span class="lineno">   35 </span>--
+<span class="lineno">   36 </span>-- In all these instructions the 'MemOffset' represents a shift relative to the current position of the pointer.
+<span class="lineno">   37 </span>-- The operation will refer and apply its action to this shifted position.
+<span class="lineno">   38 </span>data Op
+<span class="lineno">   39 </span>  -- | Increment by the amount specified by the @Int@
+<span class="lineno">   40 </span>  = Inc {-# UNPACK #-}!Int
+<span class="lineno">   41 </span>        {-# UNPACK #-}!MemOffset
+<span class="lineno">   42 </span>  -- | Move the current pointer by the specified amount
+<span class="lineno">   43 </span>  | Move {-# UNPACK #-}!MemOffset
+<span class="lineno">   44 </span>  -- | Repeatedly read a byte into the machine and write the last one read to the shifted position.
+<span class="lineno">   45 </span>  -- @n@ is usually 1 in real programs, but not always. Where the byte is read from will depend on the 'MachineIO' impleentation.
+<span class="lineno">   46 </span>  | In {-# UNPACK #-}!Int
+<span class="lineno">   47 </span>       {-# UNPACK #-}!MemOffset
+<span class="lineno">   48 </span>  -- | Repeatedly write the byte in the shifted position. Where the byte is written will depend on the 'MachineIO' impleentation.
+<span class="lineno">   49 </span>  | Out {-# UNPACK #-}!Int
+<span class="lineno">   50 </span>        {-# UNPACK #-}!MemOffset
+<span class="lineno">   51 </span>  -- | Native Brainfuck looping instruction.
+<span class="lineno">   52 </span>  | Loop ![Op]
+<span class="lineno">   53 </span>  -- | Optimized instruction. Set the shifted position to zero. In Brainfuck this is usually written as @[-]@
+<span class="lineno">   54 </span>  | Clear {-# UNPACK #-}!MemOffset
+<span class="lineno">   55 </span>  -- | Optimized instruction. Multiply by the factor the byte in the first @MemOffset@, writting to the second one.
+<span class="lineno">   56 </span>  -- Second @MemOffset@ is relative to the first one. In brainfuck this is usually written as [-&gt;+&lt;] and similar
+<span class="lineno">   57 </span>  -- expressions.
+<span class="lineno">   58 </span>  | Mul {-# UNPACK #-}!MulFactor
+<span class="lineno">   59 </span>        {-# UNPACK #-}!MemOffset
+<span class="lineno">   60 </span>        {-# UNPACK #-}!MemOffset
+<span class="lineno">   61 </span>  -- | Find the nearest zero in the given direction, starting at the offset position. See 'Direction'.
+<span class="lineno">   62 </span>  | Scan !Direction
+<span class="lineno">   63 </span>         {-# UNPACK #-}!MemOffset
+<span class="lineno">   64 </span>  deriving (<span class="decl"><span class="nottickedoff">Show</span></span>, <span class="decl"><span class="istickedoff">Eq</span></span>, Generic, Binary, NFData)
+<span class="lineno">   65 </span>
+<span class="lineno">   66 </span>-- | An offset into the Brainfuck VM memory. Positive numbers are in the direction of higher memory.
+<span class="lineno">   67 </span>newtype MemOffset =
+<span class="lineno">   68 </span>  MemOffset Int
+<span class="lineno">   69 </span>  deriving (Generic)
+<span class="lineno">   70 </span>  deriving newtype (<span class="decl"><span class="nottickedoff"><span class="decl"><span class="nottickedoff"><span class="decl"><span class="nottickedoff">Show</span></span></span></span></span></span>, <span class="decl"><span class="istickedoff"><span class="decl"><span class="istickedoff">Eq</span></span></span></span>, <span class="decl"><span class="istickedoff"><span class="decl"><span class="nottickedoff"><span class="decl"><span class="nottickedoff"><span class="decl"><span class="istickedoff"><span class="decl"><span class="nottickedoff"><span class="decl"><span class="nottickedoff"><span class="decl"><span class="istickedoff">Num</span></span></span></span></span></span></span></span></span></span></span></span></span></span>, <span class="decl"><span class="nottickedoff"><span class="decl"><span class="istickedoff"><span class="decl"><span class="nottickedoff"><span class="decl"><span class="istickedoff"><span class="decl"><span class="nottickedoff"><span class="decl"><span class="nottickedoff"><span class="decl"><span class="nottickedoff">Ord</span></span></span></span></span></span></span></span></span></span></span></span></span></span>)
+<span class="lineno">   71 </span>  deriving anyclass (Binary, NFData)
+<span class="lineno">   72 </span>
+<span class="lineno">   73 </span>-- | A factor to multiply by in the 'Mul' instruction.
+<span class="lineno">   74 </span>newtype MulFactor =
+<span class="lineno">   75 </span>  MulFactor Int
+<span class="lineno">   76 </span>  deriving (Generic)
+<span class="lineno">   77 </span>  deriving newtype (<span class="decl"><span class="nottickedoff"><span class="decl"><span class="nottickedoff"><span class="decl"><span class="nottickedoff">Show</span></span></span></span></span></span>, <span class="decl"><span class="istickedoff"><span class="decl"><span class="nottickedoff">Eq</span></span></span></span>, <span class="decl"><span class="nottickedoff"><span class="decl"><span class="nottickedoff"><span class="decl"><span class="nottickedoff"><span class="decl"><span class="nottickedoff"><span class="decl"><span class="nottickedoff"><span class="decl"><span class="nottickedoff"><span class="decl"><span class="istickedoff">Num</span></span></span></span></span></span></span></span></span></span></span></span></span></span>)
+<span class="lineno">   78 </span>  deriving anyclass (Binary, NFData)
+<span class="lineno">   79 </span>
+<span class="lineno">   80 </span>-- | A direction to 'Scan' for a memory position. 'Up' is in the direction of higher memory.
+<span class="lineno">   81 </span>data Direction
+<span class="lineno">   82 </span>  = Up -- ^ Scan in the direction of higher memory.
+<span class="lineno">   83 </span>  | Down -- ^ Scan in the direction of lower memory.
+<span class="lineno">   84 </span>  deriving (<span class="decl"><span class="nottickedoff">Show</span></span>, <span class="decl"><span class="istickedoff">Eq</span></span>, Generic)
+<span class="lineno">   85 </span>  deriving anyclass (Binary, NFData)
+<span class="lineno">   86 </span>
+<span class="lineno">   87 </span>-- * Programs
+<span class="lineno">   88 </span>-- | Marker type to distinguish optimized and 'Unoptimized' 'Program's.
+<span class="lineno">   89 </span>data Optimized
+<span class="lineno">   90 </span>
+<span class="lineno">   91 </span>-- | Marker type to distinguish 'Optimized' and unoptimized 'Program's.
+<span class="lineno">   92 </span>data Unoptimized
+<span class="lineno">   93 </span>
+<span class="lineno">   94 </span>-- | A list of 'Op's. 'opt' will be one of 'Optimized' or 'Unoptimized' to
+<span class="lineno">   95 </span>-- distinguish both types of programs at the type level.
+<span class="lineno">   96 </span>newtype Program opt = Program
+<span class="lineno">   97 </span>  { <span class="istickedoff"><span class="decl"><span class="istickedoff">instructions</span></span></span> :: [Op] -- ^ The list of instructions in the program.
+<span class="lineno">   98 </span>  } deriving (Generic) deriving newtype (<span class="decl"><span class="nottickedoff"><span class="decl"><span class="nottickedoff"><span class="decl"><span class="nottickedoff">Show</span></span></span></span></span></span>, <span class="decl"><span class="istickedoff"><span class="decl"><span class="nottickedoff">Eq</span></span></span></span>) deriving anyclass ( Binary
+<span class="lineno">   99 </span>                                                                     , NFData
+<span class="lineno">  100 </span>                                                                     )
+<span class="lineno">  101 </span>
+<span class="lineno">  102 </span>-- | Return the full list of instructions in a program, by unrolling 'Loop' instructions
+<span class="lineno">  103 </span>-- into the list.
+<span class="lineno">  104 </span>--
+<span class="lineno">  105 </span>-- &gt;&gt;&gt; flattened $ Program [Inc 1 0, Loop [Move 1, Scan Up 0]]
+<span class="lineno">  106 </span>-- [Inc 1 0,Move 1,Scan Up 0]
+<span class="lineno">  107 </span>flattened :: Program o -&gt; [Op]
+<span class="lineno">  108 </span><span class="decl"><span class="istickedoff">flattened p = [atom | op &lt;- instructions p, atom &lt;- atoms op]</span>
+<span class="lineno">  109 </span><span class="spaces">  </span><span class="istickedoff">where</span>
+<span class="lineno">  110 </span><span class="spaces">    </span><span class="istickedoff">atoms (Loop ops) = concatMap atoms ops</span>
+<span class="lineno">  111 </span><span class="spaces">    </span><span class="istickedoff">atoms other      = [other]</span></span>
+<span class="lineno">  112 </span>
+<span class="lineno">  113 </span>-- | Apply '&lt;&gt;' to the underlying @List@ of instructions.
+<span class="lineno">  114 </span>instance Semigroup (Program o) where
+<span class="lineno">  115 </span>  <span class="decl"><span class="istickedoff">Program a &lt;&gt; Program b = Program $ a &lt;&gt; b</span></span>
+<span class="lineno">  116 </span>
+<span class="lineno">  117 </span>-- | The 'Monoid' of the underlying @List@ of instructions.
+<span class="lineno">  118 </span>instance Monoid (Program o) where
+<span class="lineno">  119 </span>  <span class="decl"><span class="istickedoff">mappend = (&lt;&gt;)</span></span>
+<span class="lineno">  120 </span>  <span class="decl"><span class="istickedoff">mempty = Program mempty</span></span>
+<span class="lineno">  121 </span>
+<span class="lineno">  122 </span>-- * Runtime State
+<span class="lineno">  123 </span>-- | The state of a Brainfuck virtual machine.
+<span class="lineno">  124 </span>data Machine v = Machine
+<span class="lineno">  125 </span>  { <span class="istickedoff"><span class="decl"><span class="istickedoff">memory</span></span></span>  :: v -- ^ The full memory of the machine. This will be a 'Data.Vector.Unboxed.Vector' or a List.
+<span class="lineno">  126 </span>  , <span class="nottickedoff"><span class="decl"><span class="nottickedoff">pointer</span></span></span> :: MemOffset -- ^ The current execution pointer, information is written and read at this position.
+<span class="lineno">  127 </span>  } deriving (<span class="decl"><span class="nottickedoff">Show</span></span>, <span class="decl"><span class="nottickedoff">Eq</span></span>)
+<span class="lineno">  128 </span>
+<span class="lineno">  129 </span>-- * VM Input/Output
+<span class="lineno">  130 </span>-- | Provide input and output to a Brainfuck virtual machine.
+<span class="lineno">  131 </span>--
+<span class="lineno">  132 </span>-- This class allows to run the VM in different monads, like 'IO' or 'StateT'.
+<span class="lineno">  133 </span>class MachineIO m where
+<span class="lineno">  134 </span>  putByte :: Int8 -&gt; m () -- ^ Write the byte to the output of the VM.
+<span class="lineno">  135 </span>  getByte :: m (Maybe Int8) -- ^ Read a byte from the input of the VM. If @EOF@ has been reached, return 'Nothing'
+<span class="lineno">  136 </span>
+<span class="lineno">  137 </span>-- | 'IO' takes its input and output from stdin/stdout
+<span class="lineno">  138 </span>instance MachineIO IO where
+<span class="lineno">  139 </span>  <span class="decl"><span class="nottickedoff">putByte = putChar . toEnum . fromIntegral</span></span>
+<span class="lineno">  140 </span>  <span class="decl"><span class="nottickedoff">getByte = fmap (fromIntegral . fromEnum) &lt;$&gt; (hFlush stdout &gt;&gt; safeGetChar)</span>
+<span class="lineno">  141 </span><span class="spaces">    </span><span class="nottickedoff">where</span>
+<span class="lineno">  142 </span><span class="spaces">      </span><span class="nottickedoff">safeGetChar = fmap Just getChar `catch` recover</span>
+<span class="lineno">  143 </span><span class="spaces">      </span><span class="nottickedoff">recover :: IOError -&gt; IO (Maybe Char)</span>
+<span class="lineno">  144 </span><span class="spaces">      </span><span class="nottickedoff">recover _ = return Nothing</span></span>
+<span class="lineno">  145 </span>
+<span class="lineno">  146 </span>-- * Test Helpers
+<span class="lineno">  147 </span>-- | A data structure for mocking input and output to the VM. This can be used to run the VM
+<span class="lineno">  148 </span>-- in a 'StateT' monad for testing purposes.
+<span class="lineno">  149 </span>data MockIO = MockIO
+<span class="lineno">  150 </span>  { <span class="nottickedoff"><span class="decl"><span class="nottickedoff">machineIn</span></span></span>  :: [Int8]
+<span class="lineno">  151 </span>    -- ^ Every time the machine executes an 'In' instruction, input will be taken from this list.
+<span class="lineno">  152 </span>  , <span class="istickedoff"><span class="decl"><span class="istickedoff">machineOut</span></span></span> :: [Int8]
+<span class="lineno">  153 </span>    -- ^ Every time the machine executes an 'Out' instruction, output will be put into this list, in LIFO order.
+<span class="lineno">  154 </span>  } deriving (<span class="decl"><span class="nottickedoff">Show</span></span>, <span class="decl"><span class="istickedoff">Eq</span></span>, Generic, NFData)
+<span class="lineno">  155 </span>
+<span class="lineno">  156 </span>-- | Create a 'MockIO' that will have the given input available.
+<span class="lineno">  157 </span>mkMockIO :: [Int8] -&gt; MockIO
+<span class="lineno">  158 </span><span class="decl"><span class="istickedoff">mkMockIO input = MockIO {machineIn = input, machineOut = []}</span></span>
+<span class="lineno">  159 </span>
+<span class="lineno">  160 </span>-- | Create a 'MockIO' that will have the given input available. ASCII encoding.
+<span class="lineno">  161 </span>mkMockIOS :: String -&gt; MockIO
+<span class="lineno">  162 </span><span class="decl"><span class="istickedoff">mkMockIOS = mkMockIO . map (fromIntegral . ord)</span></span>
+<span class="lineno">  163 </span>
+<span class="lineno">  164 </span>-- | Get the output after a VM has ran using this 'MockIO'.
+<span class="lineno">  165 </span>mockOutput :: MockIO -&gt; [Int8]
+<span class="lineno">  166 </span><span class="decl"><span class="istickedoff">mockOutput = reverse . machineOut</span></span>
+<span class="lineno">  167 </span>
+<span class="lineno">  168 </span>-- | Get the output after a VM has ran using this 'MockIO'. ASCII encoding.
+<span class="lineno">  169 </span>mockOutputS :: MockIO -&gt; String
+<span class="lineno">  170 </span><span class="decl"><span class="istickedoff">mockOutputS = map (chr . fromIntegral) . mockOutput</span></span>
+<span class="lineno">  171 </span>
+<span class="lineno">  172 </span>-- | 'StateT' takes its input and output from the lists inside the 'MockIO'.
+<span class="lineno">  173 </span>instance Monad m =&gt; MachineIO (StateT MockIO m) where
+<span class="lineno">  174 </span>  putByte :: Int8 -&gt; StateT MockIO m ()
+<span class="lineno">  175 </span>  <span class="decl"><span class="istickedoff">putByte b = modify update</span>
+<span class="lineno">  176 </span><span class="spaces">    </span><span class="istickedoff">where</span>
+<span class="lineno">  177 </span><span class="spaces">      </span><span class="istickedoff">update st@MockIO {..} = st {machineOut = b : machineOut}</span></span>
+<span class="lineno">  178 </span>  getByte :: StateT MockIO m (Maybe Int8)
+<span class="lineno">  179 </span>  <span class="decl"><span class="istickedoff">getByte = do</span>
+<span class="lineno">  180 </span><span class="spaces">    </span><span class="istickedoff">st@MockIO {..} &lt;- get</span>
+<span class="lineno">  181 </span><span class="spaces">    </span><span class="istickedoff">maybe <span class="nottickedoff">(pure Nothing)</span> (update st) $ uncons machineIn</span>
+<span class="lineno">  182 </span><span class="spaces">    </span><span class="istickedoff">where</span>
+<span class="lineno">  183 </span><span class="spaces">      </span><span class="istickedoff">update st (b, bs) = put st {machineIn = bs} &gt;&gt; return (Just b)</span></span>
+<span class="lineno">  184 </span>
+<span class="lineno">  185 </span>-- * Helper Functions
+<span class="lineno">  186 </span>-- | '&lt;$&gt;' with arguments reversed.
+<span class="lineno">  187 </span>(&lt;&amp;&gt;) :: Functor f =&gt; f a -&gt; (a -&gt; b) -&gt; f b
+<span class="lineno">  188 </span><span class="decl"><span class="istickedoff">(&lt;&amp;&gt;) = flip (&lt;$&gt;)</span></span>
+<span class="lineno">  189 </span>
+<span class="lineno">  190 </span>-- | Helper function to convert a 'Right' into a 'Just' and a 'Left' into a 'Nothing'.
+<span class="lineno">  191 </span>eitherToMaybe :: Either a b -&gt; Maybe b
+<span class="lineno">  192 </span><span class="decl"><span class="istickedoff">eitherToMaybe (Right b) = Just b</span>
+<span class="lineno">  193 </span><span class="spaces"></span><span class="istickedoff">eitherToMaybe (Left _)  = Nothing</span></span>
+
+</pre>
+</body>
+</html>
