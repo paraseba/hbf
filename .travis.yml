@@ -107,12 +107,6 @@ script:
 
   - if [ "x$DEPLOY_REPORT" = "xtrue" ]; then mkdir public && mv dist-newstyle/build/*/*/hbf*/hpc/vanilla/html/hbf* public/coverage; fi
 
-  # coverage and benchmarks
-  - if [ "x$DEPLOY_REPORT" = "xtrue" ]; then cd hbf-*/ && travis_wait ../dist-newstyle/build/*/*/hbf-0.1.0.1/b/evalbench/build/evalbench/evalbench --output ../public/bench.html; fi
-
-  - cd ${DISTDIR} || false
-
-
   # cabal check
   - (cd hbf-* && cabal check)
 
