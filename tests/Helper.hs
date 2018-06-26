@@ -1,6 +1,7 @@
-{-# LANGUAGE FlexibleInstances     #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE OverloadedStrings     #-}
+{-# LANGUAGE FlexibleInstances         #-}
+{-# LANGUAGE MultiParamTypeClasses     #-}
+{-# LANGUAGE NoMonomorphismRestriction #-}
+{-# LANGUAGE OverloadedStrings         #-}
 
 -- needed for smallcheck
 module Helper where
@@ -8,11 +9,12 @@ module Helper where
 import           Control.Monad.Trans.State (runStateT)
 import           Data.Coerce               (coerce)
 import           Data.Int                  (Int8)
-import           Data.Semigroup            ((<>))
+import           Data.Semigroup            (Semigroup, (<>))
 import           Data.Text.Lazy            (Text, pack)
 import qualified Data.Text.Lazy.IO         as TIO
 import qualified Data.Vector.Unboxed       as Vector
-import           Hedgehog                  (Gen)
+import           Hedgehog                  (Gen, PropertyT, forAll, (===))
+import qualified Hedgehog.Checkers         as HC
 import qualified Hedgehog.Gen              as Gen
 import qualified Hedgehog.Range            as Range
 import           Test.SmallCheck.Series
@@ -137,3 +139,15 @@ execCode code input = fmap mockOutputS <$> execCodeMock code input
 
 execFile :: FilePath -> String -> IO (MachineType, String)
 execFile p input = TIO.readFile p >>= \code -> execCode code input
+
+-- | We redefine the monoid checker from hedgehog-checkers because it does expensive unnecessary extra work
+monoid :: (Monoid a, Semigroup a, Eq a, Show a) => Gen a -> PropertyT IO ()
+monoid gen = do
+  HC.semigroup gen
+  HC.identity mappend mempty gen
+  monoidSemigroupSame
+  where
+    monoidSemigroupSame = do
+      a <- forAll gen
+      b <- forAll gen
+      mappend a b === a <> b

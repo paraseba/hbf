@@ -4,7 +4,6 @@ import           Control.Monad.Trans.State (execStateT)
 import qualified Data.Text.Lazy.IO         as TIO
 import           Hedgehog
 import qualified Hedgehog                  as H
-import           Hedgehog.Checkers         as HC
 import           Test.HUnit
 
 import           HBF.Compiler
@@ -117,7 +116,7 @@ hprop_fusionDoesntLeaveAnythingToBeFused =
     noNoOp (Loop _)     = error "noNoOp: unexpected operation"
 
 hprop_FusedProgramHasValidMonoid :: Property
-hprop_FusedProgramHasValidMonoid = property $ HC.monoid programGen
+hprop_FusedProgramHasValidMonoid = withTests 75 $ property $ monoid programGen
 
 unit_clearOptimization :: Assertion
 unit_clearOptimization = clearOpt (Program p) @?= Program expected
