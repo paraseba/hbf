@@ -37,7 +37,7 @@ span.spaces    { background: white }
 <span class="lineno">   18 </span>
 <span class="lineno">   19 </span>import           Control.DeepSeq                (NFData)
 <span class="lineno">   20 </span>import           Control.Exception              (catch)
-<span class="lineno">   21 </span>import           Control.Monad.Trans.State.Lazy (StateT, get, modify, put)
+<span class="lineno">   21 </span>import           Control.Monad.Trans.State.Strict (StateT, get, modify, put)
 <span class="lineno">   22 </span>import           Data.Binary                    (Binary)
 <span class="lineno">   23 </span>import           Data.Char                      (chr, ord)
 <span class="lineno">   24 </span>import           Data.Int                       (Int8)
@@ -143,7 +143,7 @@ span.spaces    { background: white }
 <span class="lineno">  124 </span>data Machine v = Machine
 <span class="lineno">  125 </span>  { <span class="istickedoff"><span class="decl"><span class="istickedoff">memory</span></span></span>  :: v -- ^ The full memory of the machine. This will be a 'Data.Vector.Unboxed.Vector' or a List.
 <span class="lineno">  126 </span>  , <span class="nottickedoff"><span class="decl"><span class="nottickedoff">pointer</span></span></span> :: MemOffset -- ^ The current execution pointer, information is written and read at this position.
-<span class="lineno">  127 </span>  } deriving (<span class="decl"><span class="nottickedoff">Show</span></span>, <span class="decl"><span class="nottickedoff">Eq</span></span>)
+<span class="lineno">  127 </span>  } deriving (<span class="decl"><span class="nottickedoff">Show</span></span>, <span class="decl"><span class="istickedoff">Eq</span></span>)
 <span class="lineno">  128 </span>
 <span class="lineno">  129 </span>-- * VM Input/Output
 <span class="lineno">  130 </span>-- | Provide input and output to a Brainfuck virtual machine.
