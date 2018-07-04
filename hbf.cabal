@@ -2,7 +2,7 @@
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: d0a2bab316b8254089629b690ac242bffc13bc51cd5d53ff8037f99af9ce20ce
+-- hash: a96adcb9dea5da5768ad23ac136f4457abb0376042bf99b1e679ecad3000b074
 
 name:                hbf
 version:             0.1.0.2
@@ -91,7 +91,7 @@ executable hbf
     , transformers >=0.5.2.0
     , vector >=0.12.0.1
   if flag(profile)
-    ghc-options: -fprof-auto -with-rtsopts='-p -s -h -i0.05'
+    ghc-options: -fprof-auto "-with-rtsopts=-p -s -h -i0.05"
   default-language: Haskell2010
 
 executable hbfc
