@@ -1,13 +1,11 @@
 module CompilerTest where
 
-import           Control.Monad.Trans.State (execStateT)
 import qualified Data.Text.Lazy.IO         as TIO
 import           Hedgehog
 import qualified Hedgehog                  as H
 import           Test.HUnit
 
 import           HBF.Compiler
-import qualified HBF.Eval                  as E
 import           HBF.Types
 import           Helper
 
@@ -74,7 +72,7 @@ unit_optimizationsDontChangeResults = do
   b <- exec unoptimized
   a @?= b
   where
-    exec program = execStateT (E.eval program) (mkMockIOS "25454\n")
+    exec program = execProgram program (mkMockIOS "25454\n")
 
 fullyFused :: Program o -> Bool
 fullyFused p = all (uncurry fused) (zip ops (tail ops))

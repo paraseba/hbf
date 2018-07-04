@@ -1,6 +1,5 @@
 module EvalTest where
 
-import           Control.Monad.Trans.State (runStateT)
 import           Data.Char                 (ord)
 import           Data.Int                  (Int8)
 import qualified Data.Text.Lazy.IO         as TIO
@@ -76,8 +75,9 @@ unit_evalWithSmallMemory = do
   code <- TIO.readFile "tests/allfeatures.bf"
   let (Right (program, _)) = C.inMemoryCompile C.defaultCompilerOptions code
   (finalMachine, finalState) <-
-    runStateT
-      (E.evalWith E.defaultVMOptions {E.vmOptsMemoryBytes = bytes} program)
+    execProgramWith
+      program
+      E.defaultVMOptions {E.vmOptsMemoryBytes = bytes}
       (mkMockIOS "0")
   mockOutputS finalState @?= expectedOutput
   memory finalMachine @?= expectedMemory

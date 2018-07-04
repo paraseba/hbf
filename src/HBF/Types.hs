@@ -18,7 +18,7 @@ module HBF.Types where
 
 import           Control.DeepSeq                (NFData)
 import           Control.Exception              (catch)
-import           Control.Monad.Trans.State.Lazy (StateT, get, modify, put)
+import           Control.Monad.Trans.State.Strict (StateT, get, modify, put)
 import           Data.Binary                    (Binary)
 import           Data.Char                      (chr, ord)
 import           Data.Int                       (Int8)

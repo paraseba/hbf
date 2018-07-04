@@ -19,7 +19,7 @@ module HBF.Compiler
   ) where
 
 import           Control.Monad             (when)
-import           Control.Monad.Trans.State (State, execState, get, modify, put)
+import           Control.Monad.Trans.State.Strict (State, execState, get, modify, put)
 import qualified Data.Binary               as B
 import           Data.ByteString.Lazy      (ByteString)
 import           Data.Coerce               (coerce)

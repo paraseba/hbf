@@ -2,14 +2,13 @@
 
 module IntegrationTests where
 
-import           Control.Monad.Trans.State (execStateT)
 import           System.IO                 (hClose)
 import           System.IO.Temp            (withSystemTempFile)
 import           Test.HUnit
 
 import qualified HBF.Compiler              as C
-import qualified HBF.Eval                  as E
 import           HBF.Types
+import           Helper
 
 squaresPath :: FilePath
 squaresPath = "tests/squares.bf"
@@ -31,5 +30,5 @@ compile inpath =
 unit_compileAndEvalSquares :: Assertion
 unit_compileAndEvalSquares = do
   program <- compile squaresPath
-  mock <- execStateT (E.eval program) (mkMockIO [])
+  (_,mock) <- execProgram program (mkMockIO [])
   mockOutputS mock @?= squaresResult

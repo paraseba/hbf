@@ -6,7 +6,7 @@
 -- needed for smallcheck
 module Helper where
 
-import           Control.Monad.Trans.State (runStateT)
+import           Control.Monad.Trans.State.Strict (runStateT)
 import           Data.Coerce               (coerce)
 import           Data.Int                  (Int8)
 import           Data.Semigroup            (Semigroup, (<>))
@@ -22,7 +22,7 @@ import           Test.SmallCheck.Series
 import           HBF.Compiler              (CompilerOptions (..),
                                             defaultCompilerOptions,
                                             inMemoryCompile)
-import           HBF.Eval                  (MachineType, eval)
+import           HBF.Eval                  (MachineType, eval, evalWith, VMOptions, defaultVMOptions)
 import           HBF.Parser
 import           HBF.Types
 
@@ -123,8 +123,11 @@ cons5 ::
   -> Series m a6
 cons5 f = decDepth $ f <$> series <~> series <~> series <~> series <~> series
 
+execProgramWith :: Program Optimized -> VMOptions -> MockIO -> IO (MachineType, MockIO)
+execProgramWith p options = runStateT (evalWith options p)
+
 execProgram :: Program Optimized -> MockIO -> IO (MachineType, MockIO)
-execProgram p = runStateT (eval p)
+execProgram p = execProgramWith p defaultVMOptions
 
 execProgramS :: Program Optimized -> String -> IO (MachineType, MockIO)
 execProgramS p input = runStateT (eval p) (mkMockIOS input)

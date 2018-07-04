@@ -1,6 +1,6 @@
 module Main where
 
-import           Control.Monad.Trans.State (execStateT)
+import           Control.Monad.Trans.State.Strict (execStateT)
 import           Criterion.Main
 import qualified Data.Text.Lazy.IO         as TIO
 import           System.FilePath           (takeBaseName)
